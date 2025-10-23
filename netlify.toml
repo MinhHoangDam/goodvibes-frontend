@@ -5,3 +5,5 @@
 [build.environment]
   CI = "false"
   GENERATE_SOURCEMAP = "false"
+  NODE_VERSION = "22"
+  NPM_FLAGS = "--no-optional"
