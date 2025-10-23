@@ -13,7 +13,6 @@ const GoodVibesCarousel: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [autoPlay, setAutoPlay] = useState<boolean>(false);
   const [loadingReplies, setLoadingReplies] = useState<boolean>(false);
-  const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
   const autoPlayInterval = 5000;
 
   // Playful color options from Hopper
