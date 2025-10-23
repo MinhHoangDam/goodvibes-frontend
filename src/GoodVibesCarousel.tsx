@@ -322,6 +322,50 @@ const GoodVibesCarousel: React.FC = () => {
                 </div>
               )}
 
+              {/* Reactions in upper right corner */}
+              {vibes[currentIndex].reactions && vibes[currentIndex].reactions.length > 0 && (
+                <div 
+                  className="fade-in-content fade-delay-3"
+                  style={{ 
+                    position: 'absolute',
+                    top: 'var(--hop-space-inset-md)',
+                    right: 'var(--hop-space-inset-md)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--hop-space-inline-xs)'
+                  }}>
+                  {vibes[currentIndex].reactions.map((reaction, idx) => (
+                    <div 
+                      key={idx} 
+                      className="flex items-center" 
+                      style={{ 
+                        gap: 'var(--hop-space-inline-xs)',
+                        backgroundColor: 'var(--hop-neutral-surface-weak)',
+                        padding: 'var(--hop-space-inset-squish-sm)',
+                        borderRadius: 'var(--hop-shape-pill)',
+                        fontSize: 'var(--hop-body-sm-font-size)',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.2s ease',
+                        border: '1px solid var(--hop-neutral-border-weak)'
+                      }}
+                      title={`${reaction.count} ${reaction.count === 1 ? 'person' : 'people'} reacted with ${reaction.emoji}`}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--hop-neutral-surface)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'var(--hop-neutral-surface-weak)';
+                      }}
+                    >
+                      <span>{reaction.emoji}</span>
+                      <span style={{ 
+                        color: 'var(--hop-neutral-text)',
+                        fontWeight: 'var(--hop-body-sm-medium-font-weight)'
+                      }}>{reaction.count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div style={{ 
                 display: 'flex', 
                 flexDirection: 'column', 
@@ -359,70 +403,9 @@ const GoodVibesCarousel: React.FC = () => {
                   )}
                 </p>
 
-                {/* Reactions for vibes with replies - show directly below content */}
-                {vibes[currentIndex].replyCount > 0 && vibes[currentIndex].reactions && vibes[currentIndex].reactions.length > 0 && (
-                  <div className="flex items-center" style={{ 
-                    marginTop: 'var(--hop-space-stack-sm)',
-                    gap: 'var(--hop-space-inline-sm)'
-                  }}>
-                    {vibes[currentIndex].reactions.map((reaction, idx) => (
-                      <div 
-                        key={idx} 
-                        className="flex items-center" 
-                        style={{ 
-                          gap: 'var(--hop-space-inline-xs)',
-                          backgroundColor: 'var(--hop-neutral-surface-weak)',
-                          padding: 'var(--hop-space-inset-squish-sm)',
-                          borderRadius: 'var(--hop-shape-pill)',
-                          fontSize: 'var(--hop-body-sm-font-size)',
-                          cursor: 'pointer',
-                          transition: 'background-color 0.2s ease'
-                        }}
-                        title={`${reaction.count} ${reaction.count === 1 ? 'person' : 'people'} reacted with ${reaction.emoji}`}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = 'var(--hop-neutral-surface)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = 'var(--hop-neutral-surface-weak)';
-                        }}
-                      >
-                        <span>{reaction.emoji}</span>
-                        <span style={{ 
-                          color: 'var(--hop-neutral-text)',
-                          fontWeight: 'var(--hop-body-sm-medium-font-weight)'
-                        }}>{reaction.count}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Scenario 2: Only Reactions (no replies) - Show reactions directly below content */}
-                {vibes[currentIndex].replyCount === 0 && vibes[currentIndex].reactions && vibes[currentIndex].reactions.length > 0 && (
-                  <div className="flex items-center" style={{ 
-                    marginTop: 'var(--hop-space-stack-sm)',
-                    gap: 'var(--hop-space-inline-sm)'
-                  }}>
-                    {vibes[currentIndex].reactions.map((reaction, idx) => (
-                      <div key={idx} className="flex items-center" style={{ 
-                        gap: 'var(--hop-space-inline-xs)',
-                        backgroundColor: 'var(--hop-neutral-surface-weak)',
-                        padding: 'var(--hop-space-inset-squish-sm)',
-                        borderRadius: 'var(--hop-shape-pill)',
-                        fontSize: 'var(--hop-body-sm-font-size)'
-                      }}>
-                        <span>{reaction.emoji}</span>
-                        <span style={{ 
-                          color: 'var(--hop-neutral-text)',
-                          fontWeight: 'var(--hop-body-sm-medium-font-weight)'
-                        }}>{reaction.count}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
                 {/* Sender and recipient info at the bottom */}
                 <div className="flex items-center justify-between" style={{ 
-                  marginTop: 'var(--hop-space-stack-sm)',
+                  marginTop: '8px',
                   paddingTop: 'var(--hop-space-stack-sm)',
                   borderTop: '1px solid var(--hop-neutral-border-weak)',
                   fontSize: 'var(--hop-body-sm-font-size)',
