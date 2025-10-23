@@ -1,0 +1,4 @@
+/* Import Hopper Design System styles from installed package */
+@import "@hopper-ui/tokens/fonts.css";
+@import "@hopper-ui/tokens/tokens.css";
+@import "@hopper-ui/components/index.css";

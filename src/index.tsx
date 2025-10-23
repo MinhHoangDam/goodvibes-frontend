@@ -1,15 +1,19 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
+import './hopper.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+import { HopperProvider } from '@hopper-ui/components';
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
 root.render(
   <React.StrictMode>
-    <App />
+    <HopperProvider withBodyStyle>
+      <App />
+    </HopperProvider>
   </React.StrictMode>
 );
 

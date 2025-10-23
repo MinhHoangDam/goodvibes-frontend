@@ -1,4 +1,54 @@
-# Getting Started with Create React App
+# Good Vibes Frontend
+
+A React application for displaying Good Vibes from Officevibe with comprehensive avatar support and modern UI design using the Hopper Design System.
+
+## Features
+
+- 🎨 **Modern UI**: Built with Workleap's Hopper Design System
+- 👤 **Avatar Integration**: Real profile images with colored initials fallback
+- 🔄 **Adaptive UI**: Smart layout based on content type (replies vs reactions)
+- 📱 **Responsive Design**: Works on all device sizes
+- ⚡ **Performance**: Optimized React 19 with TypeScript
+
+## Prerequisites
+
+- Node.js 18.x or higher
+- npm or yarn package manager
+
+## GitHub Integration & Automatic Builds
+
+This project is configured with GitHub Actions for automatic building and deployment.
+
+### Setup Instructions
+
+1. **Push to GitHub**:
+   ```bash
+   git init
+   git add .
+   git commit -m "Initial commit"
+   git branch -M main
+   git remote add origin https://github.com/YOUR_USERNAME/good-vibes-frontend.git
+   git push -u origin main
+   ```
+
+2. **Enable GitHub Pages** (for automatic deployment):
+   - Go to your repository on GitHub
+   - Navigate to **Settings** → **Pages**
+   - Under "Source", select **GitHub Actions**
+   - The site will be available at `https://YOUR_USERNAME.github.io/good-vibes-frontend`
+
+3. **Automatic Builds**:
+   - Every push to `main` branch triggers a build
+   - Pull requests are automatically tested
+   - Build artifacts are saved for 7 days
+   - Failed builds will block deployment
+
+### Workflows
+
+- **`build-and-deploy.yml`**: Builds and deploys to GitHub Pages on main branch
+- **`ci.yml`**: Runs tests and builds on all branches and PRs
+
+## Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
@@ -38,6 +88,35 @@ If you aren’t satisfied with the build tool and configuration choices, you can
 Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
 
 You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+
+## Backend Integration
+
+This frontend connects to a .NET backend that provides:
+- Good Vibes data from Officevibe API  
+- User avatar images from Workleap API
+- Caching and rate limiting for optimal performance
+
+Make sure the backend is running on `http://localhost:5000` for development.
+
+## Technology Stack
+
+- **React 19** with TypeScript
+- **Hopper Design System** (@hopper-ui/components) 
+- **React Aria** for accessibility
+- **Lucide React** for additional icons
+
+## Deployment Options
+
+### GitHub Pages (Recommended)
+Automatic deployment is configured via GitHub Actions. Just push to main branch.
+
+### Manual Deployment
+1. Run `npm run build`
+2. Deploy the `build/` folder to any static hosting service:
+   - Vercel
+   - Netlify  
+   - AWS S3
+   - Azure Static Web Apps
 
 ## Learn More
 

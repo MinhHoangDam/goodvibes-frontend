@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "hopper": {
+      "url": "https://hopper.workleap.design/mcp",
+      "type": "http"
+    }
+  }
+}
