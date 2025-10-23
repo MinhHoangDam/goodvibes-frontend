@@ -4,7 +4,7 @@ import { Avatar } from '@hopper-ui/components';
 import { GoodVibe, GoodVibesResponse } from './types';
 import './CarouselAnimations.css';
 
-const API_BASE_URL = 'https://goodvibes-backend-f5yb.onrender.com';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
 const GoodVibesCarousel: React.FC = () => {
   const [vibes, setVibes] = useState<GoodVibe[]>([]);
@@ -13,7 +13,10 @@ const GoodVibesCarousel: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [autoPlay, setAutoPlay] = useState<boolean>(false);
   const [loadingReplies, setLoadingReplies] = useState<boolean>(false);
+  const [replyStartIndex, setReplyStartIndex] = useState<number>(0); // Track which set of replies to show
+  const [hasCompletedReplyCycle, setHasCompletedReplyCycle] = useState<boolean>(false); // Track if we've shown all replies
   const autoPlayInterval = 5000;
+  const maxVisibleReplies = 3; // Show only 3 replies at a time
 
   // Playful color options from Hopper
   const decorativeColors = [
@@ -48,11 +51,25 @@ const GoodVibesCarousel: React.FC = () => {
   useEffect(() => {
     if (autoPlay && vibes.length > 1) {
       const timer = setInterval(() => {
-        setCurrentIndex((prev) => (prev + 1) % vibes.length);
+        const currentVibe = vibes[currentIndex];
+        
+        // If current vibe has more than maxVisibleReplies, wait for completion flag
+        if (currentVibe?.replies && currentVibe.replies.length > maxVisibleReplies) {
+          // Move to next vibe immediately when reply cycle is complete
+          if (hasCompletedReplyCycle) {
+            setCurrentIndex((prev) => (prev + 1) % vibes.length);
+            setHasCompletedReplyCycle(false); // Reset for next vibe
+            setReplyStartIndex(0); // Reset reply index for next vibe
+          }
+        } else {
+          // No replies or replies <= 3, proceed normally with regular timing
+          setCurrentIndex((prev) => (prev + 1) % vibes.length);
+          setReplyStartIndex(0); // Reset reply index for next vibe
+        }
       }, autoPlayInterval);
       return () => clearInterval(timer);
     }
-  }, [autoPlay, vibes.length, currentIndex]);
+  }, [autoPlay, vibes.length, currentIndex, hasCompletedReplyCycle]);
 
   useEffect(() => {
     // Auto-fetch replies when viewing a Good Vibe that has replies but they haven't been loaded yet
@@ -117,11 +134,44 @@ const GoodVibesCarousel: React.FC = () => {
 
   const nextVibe = (): void => {
     setCurrentIndex((prev) => (prev + 1) % vibes.length);
+    setReplyStartIndex(0); // Reset reply pagination when changing vibes
+    setHasCompletedReplyCycle(false); // Reset completion flag
   };
 
   const prevVibe = (): void => {
     setCurrentIndex((prev) => (prev - 1 + vibes.length) % vibes.length);
+    setReplyStartIndex(0); // Reset reply pagination when changing vibes
+    setHasCompletedReplyCycle(false); // Reset completion flag
   };
+
+  // Auto-rotation effect for replies when there are more than maxVisibleReplies
+  useEffect(() => {
+    const currentVibe = vibes[currentIndex];
+    if (!currentVibe?.replies || currentVibe.replies.length <= maxVisibleReplies || hasCompletedReplyCycle) {
+      return; // Stop rotation if cycle is complete
+    }
+
+    const replyRotationInterval = 4000; // 4 seconds
+    const interval = setInterval(() => {
+      setReplyStartIndex((prev) => {
+        const totalReplies = currentVibe.replies?.length || 0;
+        const nextIndex = prev + 1;
+        
+        // Calculate how many unique starting positions we have
+        const maxStartIndex = totalReplies - maxVisibleReplies;
+        
+        // If we've reached the maximum start index, complete the cycle WITHOUT going back to 0
+        if (prev >= maxStartIndex) {
+          setHasCompletedReplyCycle(true); // Mark that we've completed a full cycle
+          return prev; // Stay at current position instead of going back to 0
+        }
+        
+        return nextIndex;
+      });
+    }, replyRotationInterval);
+
+    return () => clearInterval(interval);
+  }, [currentIndex, vibes[currentIndex]?.replies?.length, vibes[currentIndex]?.goodVibeId, hasCompletedReplyCycle]);
 
   const toggleAutoPlay = (): void => {
     setAutoPlay(!autoPlay);
@@ -132,21 +182,48 @@ const GoodVibesCarousel: React.FC = () => {
     return date.toLocaleDateString('en-US', { 
       month: 'short', 
       day: 'numeric', 
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      year: 'numeric'
     });
   };
 
   return (
-    <div style={{ 
-      minHeight: '100vh',
-      backgroundColor: 'var(--hop-neutral-surface-weakest)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 'var(--hop-space-inset-xl)'
-    }}>
+    <>
+      <style>
+        {`
+          .reply-container {
+            overflow: hidden;
+            position: relative;
+          }
+          
+          .reply-item {
+            transition: all 0.3s ease;
+          }
+          
+          /* Simple slide up animation for new replies */
+          @keyframes slideUp {
+            from { 
+              transform: translateY(20px);
+              opacity: 0;
+            }
+            to { 
+              transform: translateY(0);
+              opacity: 1;
+            }
+          }
+          
+          .reply-entering {
+            animation: slideUp 0.6s ease-out;
+          }
+        `}
+      </style>
+      <div style={{ 
+        minHeight: '100vh',
+        backgroundColor: 'var(--hop-neutral-surface-weakest)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 'var(--hop-space-inset-xl)'
+      }}>
       <div style={{ maxWidth: '56rem', width: '100%' }}>
         <div className="text-center" style={{ marginBottom: 'var(--hop-space-stack-xl)' }}>
           <h1 style={{ 
@@ -263,7 +340,7 @@ const GoodVibesCarousel: React.FC = () => {
                     textAlign: 'center'
                   }}>
                   {vibes[currentIndex].message.trim() ? (
-                    `"${vibes[currentIndex].message}"`
+                    vibes[currentIndex].message
                   ) : vibes[currentIndex].cardPrompt && vibes[currentIndex].cardPrompt!.length > 0 ? (
                     <span style={{ 
                       color: 'var(--hop-neutral-text)',
@@ -282,14 +359,126 @@ const GoodVibesCarousel: React.FC = () => {
                   )}
                 </p>
 
-                {/* Scenario 1: Replies + Reactions - Show divider and full section */}
+                {/* Reactions for vibes with replies - show directly below content */}
+                {vibes[currentIndex].replyCount > 0 && vibes[currentIndex].reactions && vibes[currentIndex].reactions.length > 0 && (
+                  <div className="flex items-center" style={{ 
+                    marginTop: 'var(--hop-space-stack-sm)',
+                    gap: 'var(--hop-space-inline-sm)'
+                  }}>
+                    {vibes[currentIndex].reactions.map((reaction, idx) => (
+                      <div 
+                        key={idx} 
+                        className="flex items-center" 
+                        style={{ 
+                          gap: 'var(--hop-space-inline-xs)',
+                          backgroundColor: 'var(--hop-neutral-surface-weak)',
+                          padding: 'var(--hop-space-inset-squish-sm)',
+                          borderRadius: 'var(--hop-shape-pill)',
+                          fontSize: 'var(--hop-body-sm-font-size)',
+                          cursor: 'pointer',
+                          transition: 'background-color 0.2s ease'
+                        }}
+                        title={`${reaction.count} ${reaction.count === 1 ? 'person' : 'people'} reacted with ${reaction.emoji}`}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = 'var(--hop-neutral-surface)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'var(--hop-neutral-surface-weak)';
+                        }}
+                      >
+                        <span>{reaction.emoji}</span>
+                        <span style={{ 
+                          color: 'var(--hop-neutral-text)',
+                          fontWeight: 'var(--hop-body-sm-medium-font-weight)'
+                        }}>{reaction.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Scenario 2: Only Reactions (no replies) - Show reactions directly below content */}
+                {vibes[currentIndex].replyCount === 0 && vibes[currentIndex].reactions && vibes[currentIndex].reactions.length > 0 && (
+                  <div className="flex items-center" style={{ 
+                    marginTop: 'var(--hop-space-stack-sm)',
+                    gap: 'var(--hop-space-inline-sm)'
+                  }}>
+                    {vibes[currentIndex].reactions.map((reaction, idx) => (
+                      <div key={idx} className="flex items-center" style={{ 
+                        gap: 'var(--hop-space-inline-xs)',
+                        backgroundColor: 'var(--hop-neutral-surface-weak)',
+                        padding: 'var(--hop-space-inset-squish-sm)',
+                        borderRadius: 'var(--hop-shape-pill)',
+                        fontSize: 'var(--hop-body-sm-font-size)'
+                      }}>
+                        <span>{reaction.emoji}</span>
+                        <span style={{ 
+                          color: 'var(--hop-neutral-text)',
+                          fontWeight: 'var(--hop-body-sm-medium-font-weight)'
+                        }}>{reaction.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Sender and recipient info at the bottom */}
+                <div className="flex items-center justify-between" style={{ 
+                  marginTop: 'var(--hop-space-stack-sm)',
+                  paddingTop: 'var(--hop-space-stack-sm)',
+                  borderTop: '1px solid var(--hop-neutral-border-weak)',
+                  fontSize: 'var(--hop-body-sm-font-size)',
+                  color: 'var(--hop-neutral-text-weak)'
+                }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--hop-space-stack-xs)' }}>
+                    {vibes[currentIndex].recipients && vibes[currentIndex].recipients.length > 0 && (
+                      <div className="flex items-center" style={{ gap: 'var(--hop-space-inline-xs)' }}>
+                        <span style={{ 
+                          fontWeight: 'var(--hop-body-sm-semibold-font-weight)',
+                          fontSize: 'var(--hop-body-sm-font-size)'
+                        }}>To:</span>
+                        {vibes[currentIndex].recipients.map((recipient, idx) => (
+                          <React.Fragment key={idx}>
+                            <Avatar 
+                              name={recipient.displayName} 
+                              size="sm"
+                              src={recipient.avatarUrl || undefined}
+                            />
+                            <span style={{ 
+                              fontWeight: 'var(--hop-body-sm-semibold-font-weight)',
+                              fontSize: 'var(--hop-body-sm-font-size)'
+                            }}>
+                              {recipient.displayName}
+                            </span>
+                            {idx < vibes[currentIndex].recipients.length - 1 && <span>,</span>}
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex items-center" style={{ gap: 'var(--hop-space-inline-xs)' }}>
+                      <span style={{ 
+                        fontSize: 'var(--hop-body-sm-font-size)'
+                      }}>From:</span>
+                      <Avatar 
+                        name={vibes[currentIndex].senderUser.displayName} 
+                        size="sm"
+                        src={vibes[currentIndex].senderUser.avatarUrl || undefined}
+                      />
+                      <span style={{ 
+                        fontSize: 'var(--hop-body-sm-font-size)'
+                      }}>
+                        {vibes[currentIndex].senderUser.displayName}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    {formatDate(vibes[currentIndex].creationDate)}
+                  </div>
+                </div>
+
+                {/* Replies section - moved after sender/recipient info */}
                 {vibes[currentIndex].replyCount > 0 && (
                   <div style={{ 
-                    borderTop: '1px solid var(--hop-neutral-border-weak)',
-                    paddingTop: 'var(--hop-space-stack-xl)'
+                    marginTop: 'var(--hop-space-stack-md)'
                   }}>
-
-                  <div style={{ marginTop: 'var(--hop-space-stack-xl)' }}>
                     <div className="flex items-center" style={{ 
                       gap: 'var(--hop-space-inline-sm)',
                       fontSize: 'var(--hop-body-sm-font-size)',
@@ -318,142 +507,63 @@ const GoodVibesCarousel: React.FC = () => {
                         }}>Loading replies...</p>
                       </div>
                     )}
-                    {vibes[currentIndex].replies && vibes[currentIndex].replies!.length > 0 && (
-                      <div style={{ 
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 'var(--hop-space-stack-sm)',
-                        maxHeight: '16rem',
-                        overflowY: 'auto',
-                        paddingRight: 'var(--hop-space-inline-sm)'
-                      }}>
-                        {vibes[currentIndex].replies!.map((reply, idx) => (
-                          <div key={idx} style={{ 
-                            backgroundColor: `var(--hop-${getVibeColor(currentIndex)}-surface-weakest)`,
-                            borderRadius: 'var(--hop-shape-rounded-lg)',
-                            padding: 'var(--hop-space-inset-md)',
-                            borderLeft: `3px solid var(--hop-${getVibeColor(currentIndex)}-border)`
+                    {vibes[currentIndex].replies && vibes[currentIndex].replies!.length > 0 && (() => {
+                      const currentVibe = vibes[currentIndex];
+                      const allReplies = currentVibe.replies!;
+                      const totalReplies = allReplies.length;
+                      const visibleReplies = allReplies.slice(replyStartIndex, replyStartIndex + maxVisibleReplies);
+                      const hasMoreThanMaxVisible = totalReplies > maxVisibleReplies;
+                      const currentPage = Math.floor(replyStartIndex / maxVisibleReplies) + 1;
+                      const totalPages = Math.ceil(totalReplies / maxVisibleReplies);
+
+                      return (
+                        <div>
+
+                          {/* Visible replies */}
+                          <div className="reply-container" style={{ 
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 'var(--hop-space-stack-sm)'
                           }}>
-                            <p style={{ 
-                              fontSize: 'var(--hop-body-sm-font-size)',
-                              lineHeight: 'var(--hop-body-sm-line-height)',
-                              color: 'var(--hop-neutral-text)',
-                              marginBottom: 'var(--hop-space-stack-sm)'
-                            }}>"{reply.message}"</p>
-                            <div className="flex items-center justify-between" style={{ 
-                              fontSize: 'var(--hop-body-xs-font-size)',
-                              color: 'var(--hop-neutral-text)'
-                            }}>
-                              <div className="flex items-center" style={{ gap: 'var(--hop-space-inline-xs)' }}>
-                                <Avatar 
-                                  name={reply.authorUser.displayName} 
-                                  size="xs" 
-                                  src={reply.authorUser.avatarUrl || undefined}
-                                />
-                                <span style={{ fontWeight: 'var(--hop-body-xs-semibold-font-weight)' }}>{reply.authorUser.displayName}</span>
+                            {visibleReplies.map((reply, idx) => (
+                              <div 
+                                key={`${replyStartIndex + idx}-${reply.authorUser.userId}-${reply.replyDate}`}
+                                className="reply-item reply-entering"
+                                style={{ 
+                                  backgroundColor: `var(--hop-${getVibeColor(currentIndex)}-surface-weakest)`,
+                                  borderRadius: 'var(--hop-shape-rounded-lg)',
+                                  padding: 'var(--hop-space-inset-md)',
+                                  borderLeft: `3px solid var(--hop-${getVibeColor(currentIndex)}-border)`
+                                }}
+                              >
+                                <p style={{ 
+                                  fontSize: 'var(--hop-body-sm-font-size)',
+                                  lineHeight: 'var(--hop-body-sm-line-height)',
+                                  color: 'var(--hop-neutral-text)',
+                                  marginBottom: 'var(--hop-space-stack-sm)'
+                                }}>{reply.message}</p>
+                                <div className="flex items-center justify-between" style={{ 
+                                  fontSize: 'var(--hop-body-xs-font-size)',
+                                  color: 'var(--hop-neutral-text)'
+                                }}>
+                                  <div className="flex items-center" style={{ gap: 'var(--hop-space-inline-xs)' }}>
+                                    <Avatar 
+                                      name={reply.authorUser.displayName} 
+                                      size="xs" 
+                                      src={reply.authorUser.avatarUrl || undefined}
+                                    />
+                                    <span style={{ fontWeight: 'var(--hop-body-xs-semibold-font-weight)' }}>{reply.authorUser.displayName}</span>
+                                  </div>
+                                  <span style={{ color: 'var(--hop-neutral-text-weak)' }}>{formatDate(reply.replyDate)}</span>
+                                </div>
                               </div>
-                              <span style={{ color: 'var(--hop-neutral-text-weak)' }}>{formatDate(reply.replyDate)}</span>
-                            </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Reactions in the replies section */}
-                  {vibes[currentIndex].reactions && vibes[currentIndex].reactions.length > 0 && (
-                    <div className="flex items-center" style={{ 
-                      marginTop: 'var(--hop-space-stack-lg)',
-                      gap: 'var(--hop-space-inline-sm)'
-                    }}>
-                      {vibes[currentIndex].reactions.map((reaction, idx) => (
-                        <div key={idx} className="flex items-center" style={{ 
-                          gap: 'var(--hop-space-inline-xs)',
-                          backgroundColor: 'var(--hop-neutral-surface-weak)',
-                          padding: 'var(--hop-space-inset-squish-sm)',
-                          borderRadius: 'var(--hop-shape-pill)',
-                          fontSize: 'var(--hop-body-sm-font-size)'
-                        }}>
-                          <span>{reaction.emoji}</span>
-                          <span style={{ 
-                            color: 'var(--hop-neutral-text)',
-                            fontWeight: 'var(--hop-body-sm-medium-font-weight)'
-                          }}>{reaction.count}</span>
                         </div>
-                      ))}
-                    </div>
-                  )}
-
+                      );
+                    })()}
                   </div>
                 )}
-
-                {/* Scenario 2: Only Reactions (no replies) - Show reactions directly below content */}
-                {vibes[currentIndex].replyCount === 0 && vibes[currentIndex].reactions && vibes[currentIndex].reactions.length > 0 && (
-                  <div className="flex items-center" style={{ 
-                    marginTop: 'var(--hop-space-stack-lg)',
-                    gap: 'var(--hop-space-inline-sm)'
-                  }}>
-                    {vibes[currentIndex].reactions.map((reaction, idx) => (
-                      <div key={idx} className="flex items-center" style={{ 
-                        gap: 'var(--hop-space-inline-xs)',
-                        backgroundColor: 'var(--hop-neutral-surface-weak)',
-                        padding: 'var(--hop-space-inset-squish-sm)',
-                        borderRadius: 'var(--hop-shape-pill)',
-                        fontSize: 'var(--hop-body-sm-font-size)'
-                      }}>
-                        <span>{reaction.emoji}</span>
-                        <span style={{ 
-                          color: 'var(--hop-neutral-text)',
-                          fontWeight: 'var(--hop-body-sm-medium-font-weight)'
-                        }}>{reaction.count}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Sender and recipient info at the bottom */}
-                <div className="flex items-center justify-between" style={{ 
-                  marginTop: 'var(--hop-space-stack-lg)',
-                  paddingTop: 'var(--hop-space-stack-md)',
-                  borderTop: '1px solid var(--hop-neutral-border-weak)',
-                  fontSize: 'var(--hop-body-xs-font-size)',
-                  color: 'var(--hop-neutral-text-weak)'
-                }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--hop-space-stack-xs)' }}>
-                    {vibes[currentIndex].recipients && vibes[currentIndex].recipients.length > 0 && (
-                      <div className="flex items-center" style={{ gap: 'var(--hop-space-inline-xs)' }}>
-                        <span style={{ fontWeight: 'var(--hop-body-xs-semibold-font-weight)' }}>To:</span>
-                        {vibes[currentIndex].recipients.map((recipient, idx) => (
-                          <React.Fragment key={idx}>
-                            <Avatar 
-                              name={recipient.displayName} 
-                              size="xs"
-                              src={recipient.avatarUrl || undefined}
-                            />
-                            <span style={{ fontWeight: 'var(--hop-body-xs-semibold-font-weight)' }}>
-                              {recipient.displayName}
-                            </span>
-                            {idx < vibes[currentIndex].recipients.length - 1 && <span>,</span>}
-                          </React.Fragment>
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex items-center" style={{ gap: 'var(--hop-space-inline-xs)' }}>
-                      <span>From:</span>
-                      <Avatar 
-                        name={vibes[currentIndex].senderUser.displayName} 
-                        size="xs"
-                        src={vibes[currentIndex].senderUser.avatarUrl || undefined}
-                      />
-                      <span>
-                        {vibes[currentIndex].senderUser.displayName}
-                      </span>
-                    </div>
-                  </div>
-                  <div>
-                    {formatDate(vibes[currentIndex].creationDate)}
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -604,7 +714,8 @@ const GoodVibesCarousel: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 
