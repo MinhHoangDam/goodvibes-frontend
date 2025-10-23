@@ -16,7 +16,7 @@ const GoodVibesCarousel: React.FC = () => {
   const [replyStartIndex, setReplyStartIndex] = useState<number>(0); // Track which set of replies to show
   const [hasCompletedReplyCycle, setHasCompletedReplyCycle] = useState<boolean>(false); // Track if we've shown all replies
   const autoPlayInterval = 5000;
-  const maxVisibleReplies = 3; // Show only 3 replies at a time
+  const maxVisibleReplies = 2; // Show only 2 replies at a time
 
   // Playful color options from Hopper
   const decorativeColors = [
@@ -62,7 +62,7 @@ const GoodVibesCarousel: React.FC = () => {
             setReplyStartIndex(0); // Reset reply index for next vibe
           }
         } else {
-          // No replies or replies <= 3, proceed normally with regular timing
+          // No replies or replies <= 2, proceed normally with regular timing
           setCurrentIndex((prev) => (prev + 1) % vibes.length);
           setReplyStartIndex(0); // Reset reply index for next vibe
         }
