@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { WellnessIcon, RefreshIcon, PlayIcon, PauseIcon, NewCommentIcon, ArrowLeftIcon, ArrowRightIcon, SparklesIcon } from '@hopper-ui/icons';
-import { Avatar } from '@hopper-ui/components';
+import { WellnessIcon, RefreshIcon, PlayIcon, PauseIcon, NewCommentIcon, ArrowLeftIcon, ArrowRightIcon, SparklesIcon, LightbulbIcon } from '@hopper-ui/icons';
+import { Avatar, useColorSchemeContext } from '@hopper-ui/components';
 import { GoodVibe, GoodVibesResponse } from './types';
 import './CarouselAnimations.css';
 
@@ -15,8 +15,15 @@ const GoodVibesCarousel: React.FC = () => {
   const [loadingReplies, setLoadingReplies] = useState<boolean>(false);
   const [replyStartIndex, setReplyStartIndex] = useState<number>(0); // Track which set of replies to show
   const [hasCompletedReplyCycle, setHasCompletedReplyCycle] = useState<boolean>(false); // Track if we've shown all replies
+  const [showControls, setShowControls] = useState<boolean>(false); // Track if controls should be visible
+  const [mouseInactivityTimer, setMouseInactivityTimer] = useState<NodeJS.Timeout | null>(null);
+  
+  // Theme management
+  const { colorScheme, setColorScheme } = useColorSchemeContext();
+  
   const autoPlayInterval = 5000;
   const maxVisibleReplies = 2; // Show only 2 replies at a time
+  const controlsHideDelay = 7000; // 7 seconds
 
   // Playful color options from Hopper
   const decorativeColors = [
@@ -47,6 +54,45 @@ const GoodVibesCarousel: React.FC = () => {
 
     return () => clearInterval(refreshTimer);
   }, []);
+
+  // Mouse activity tracking for control visibility
+  useEffect(() => {
+    const handleMouseMove = () => {
+      setShowControls(true);
+      
+      // Clear existing timer
+      if (mouseInactivityTimer) {
+        clearTimeout(mouseInactivityTimer);
+      }
+      
+      // Set new timer to hide controls after delay
+      const newTimer = setTimeout(() => {
+        setShowControls(false);
+      }, controlsHideDelay);
+      
+      setMouseInactivityTimer(newTimer);
+    };
+
+    const handleMouseLeave = () => {
+      // Hide controls immediately when mouse leaves the container
+      setShowControls(false);
+      if (mouseInactivityTimer) {
+        clearTimeout(mouseInactivityTimer);
+        setMouseInactivityTimer(null);
+      }
+    };
+
+    // Add event listeners to document for mouse movement
+    document.addEventListener('mousemove', handleMouseMove);
+    
+    // Cleanup function
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      if (mouseInactivityTimer) {
+        clearTimeout(mouseInactivityTimer);
+      }
+    };
+  }, [mouseInactivityTimer, controlsHideDelay]);
 
   useEffect(() => {
     if (autoPlay && vibes.length > 1) {
@@ -83,20 +129,58 @@ const GoodVibesCarousel: React.FC = () => {
     setError(null);
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/good-vibes?isPublic=true`);
+      let allVibes: GoodVibe[] = [];
+      let continuationToken: string | undefined = undefined;
+      let totalFetched = 0;
+      const maxPages = 10; // Safety limit to prevent infinite loops
+      let pageCount = 0;
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
-      }
+      // Fetch all pages until no more data
+      do {
+        pageCount++;
+        const url = continuationToken 
+          ? `${API_BASE_URL}/api/good-vibes?isPublic=true&continuationToken=${continuationToken}`
+          : `${API_BASE_URL}/api/good-vibes?isPublic=true`;
+        
+        console.log(`🔄 Fetching page ${pageCount}, URL: ${url}`);
+        
+        const response = await fetch(url);
 
-      const data: GoodVibesResponse = await response.json();
+        if (!response.ok) {
+          throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
+        }
+
+        const data: GoodVibesResponse = await response.json();
+        const pageVibes = data.data || [];
+        
+        allVibes = [...allVibes, ...pageVibes];
+        totalFetched += pageVibes.length;
+        continuationToken = data.metadata?.continuationToken;
+        
+        console.log(`📄 Page ${pageCount} results:`, {
+          pageSize: pageVibes.length,
+          totalSoFar: totalFetched,
+          totalAvailable: data.metadata?.totalCount,
+          hasMorePages: !!continuationToken
+        });
+        
+        // Safety check to prevent infinite loops
+        if (pageCount >= maxPages) {
+          console.warn(`⚠️ Reached maximum page limit (${maxPages}), stopping fetch`);
+          break;
+        }
+        
+      } while (continuationToken && pageCount < maxPages);
+
+      console.log('✅ Final results:', {
+        totalFetched: allVibes.length,
+        pagesLoaded: pageCount
+      });
       
-      const vibesData = data.data || [];
-      
-      if (vibesData.length === 0) {
+      if (allVibes.length === 0) {
         setError('No Good Vibes found');
       } else {
-        setVibes(vibesData);
+        setVibes(allVibes);
         setCurrentIndex(0);
       }
     } catch (err) {
@@ -174,7 +258,12 @@ const GoodVibesCarousel: React.FC = () => {
   }, [currentIndex, vibes[currentIndex]?.replies?.length, vibes[currentIndex]?.goodVibeId, hasCompletedReplyCycle]);
 
   const toggleAutoPlay = (): void => {
+    console.log('🎮 Auto-play toggled:', !autoPlay);
     setAutoPlay(!autoPlay);
+  };
+
+  const toggleTheme = (): void => {
+    setColorScheme(colorScheme === 'light' ? 'dark' : 'light');
   };
 
   const formatDate = (dateString: string): string => {
@@ -214,6 +303,21 @@ const GoodVibesCarousel: React.FC = () => {
           .reply-entering {
             animation: slideUp 0.6s ease-out;
           }
+          
+          /* Control overlay styles */
+          .controls-overlay {
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+          }
+          
+          .controls-hidden {
+            opacity: 0;
+            visibility: hidden;
+          }
+          
+          .controls-visible {
+            opacity: 1;
+            visibility: visible;
+          }
         `}
       </style>
       <div style={{ 
@@ -225,7 +329,38 @@ const GoodVibesCarousel: React.FC = () => {
         padding: 'var(--hop-space-inset-xl)'
       }}>
       <div style={{ maxWidth: '56rem', width: '100%' }}>
-        <div className="text-center" style={{ marginBottom: 'var(--hop-space-stack-xl)' }}>
+        <div className="text-center" style={{ marginBottom: 'var(--hop-space-stack-xl)', position: 'relative' }}>
+          {/* Theme toggle button - positioned absolutely in top right */}
+          <button
+            onClick={toggleTheme}
+            className={`controls-overlay ${showControls ? 'controls-visible' : 'controls-hidden'} hover:opacity-80`}
+            style={{
+              position: 'absolute',
+              top: '0',
+              right: '0',
+              backgroundColor: 'var(--hop-neutral-surface)',
+              border: '1px solid var(--hop-neutral-border-weak)',
+              borderRadius: 'var(--hop-shape-circle)',
+              padding: 'var(--hop-space-inset-sm)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s ease',
+              boxShadow: 'var(--hop-elevation-lifted)'
+            }}
+            aria-label={`Switch to ${colorScheme === 'light' ? 'dark' : 'light'} mode`}
+            title={`Switch to ${colorScheme === 'light' ? 'dark' : 'light'} mode`}
+          >
+            <LightbulbIcon 
+              style={{ 
+                width: '1.25rem', 
+                height: '1.25rem', 
+                color: 'var(--hop-neutral-icon)' 
+              }} 
+            />
+          </button>
+
           <h1 style={{ 
             fontSize: 'var(--hop-heading-xl-font-size)',
             fontWeight: 'var(--hop-heading-xl-font-weight)',
@@ -274,7 +409,7 @@ const GoodVibesCarousel: React.FC = () => {
               color: 'var(--hop-neutral-text)',
               fontSize: 'var(--hop-body-sm-font-size)',
               marginTop: 'var(--hop-space-stack-sm)'
-            }}>Make sure the backend server is accessible at https://goodvibes-backend-f5yb.onrender.com</p>
+            }}>Make sure the backend server is accessible at {API_BASE_URL}</p>
           </div>
         )}
 
@@ -513,10 +648,13 @@ const GoodVibesCarousel: React.FC = () => {
                                 key={`${replyStartIndex + idx}-${reply.authorUser.userId}-${reply.replyDate}`}
                                 className="reply-item reply-entering"
                                 style={{ 
-                                  backgroundColor: `var(--hop-${getVibeColor(currentIndex)}-surface-weakest)`,
+                                  backgroundColor: colorScheme === 'light' 
+                                    ? `var(--hop-${getVibeColor(currentIndex)}-surface-weakest)`
+                                    : 'var(--hop-neutral-surface-weak)',
                                   borderRadius: 'var(--hop-shape-rounded-lg)',
                                   padding: 'var(--hop-space-inset-md)',
-                                  borderLeft: `3px solid var(--hop-${getVibeColor(currentIndex)}-border)`
+                                  borderLeft: `3px solid var(--hop-${getVibeColor(currentIndex)}-border)`,
+                                  border: '1px solid var(--hop-neutral-border-weak)'
                                 }}
                               >
                                 <p style={{ 
@@ -551,10 +689,13 @@ const GoodVibesCarousel: React.FC = () => {
             </div>
 
             {vibes.length > 1 && (
-              <div className="flex justify-center items-center" style={{ 
-                gap: 'var(--hop-space-inline-lg)',
-                marginTop: 'var(--hop-space-stack-xl)'
-              }}>
+              <div 
+                className={`controls-overlay ${showControls ? 'controls-visible' : 'controls-hidden'} flex justify-center items-center`}
+                style={{ 
+                  gap: 'var(--hop-space-inline-lg)',
+                  marginTop: 'var(--hop-space-stack-xl)'
+                }}
+              >
                 {/* Refresh button on the left */}
                 <button
                   onClick={fetchGoodVibes}
@@ -615,9 +756,17 @@ const GoodVibesCarousel: React.FC = () => {
 
                 {/* Auto-play button on the right */}
                 <button
-                  onClick={toggleAutoPlay}
+                  onClick={(e) => {
+                    toggleAutoPlay();
+                    // Trigger mouse move to reset the hide timer
+                    e.currentTarget.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+                  }}
+                  onMouseEnter={(e) => {
+                    // Reset hide timer on hover
+                    e.currentTarget.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+                  }}
                   style={{ 
-                    color: autoPlay ? 'var(--hop-success-text)' : 'var(--hop-primary-text)',
+                    color: autoPlay ? 'var(--hop-success-text-strong)' : 'var(--hop-primary-text)',
                     gap: 'var(--hop-space-inline-xs)',
                     fontWeight: 'var(--hop-body-sm-medium-font-weight)',
                     fontSize: 'var(--hop-body-sm-font-size)',
@@ -636,9 +785,12 @@ const GoodVibesCarousel: React.FC = () => {
 
             {/* Navigation for single vibe */}
             {vibes.length === 1 && (
-              <div className="flex justify-center" style={{ 
-                marginTop: 'var(--hop-space-stack-xl)'
-              }}>
+              <div 
+                className={`controls-overlay ${showControls ? 'controls-visible' : 'controls-hidden'} flex justify-center`}
+                style={{ 
+                  marginTop: 'var(--hop-space-stack-xl)'
+                }}
+              >
                 <button
                   onClick={fetchGoodVibes}
                   style={{ 
@@ -659,33 +811,92 @@ const GoodVibesCarousel: React.FC = () => {
               </div>
             )}
 
-            <div className="flex justify-center" style={{ 
-              gap: 'var(--hop-space-inline-sm)',
-              marginTop: 'var(--hop-space-stack-xl)'
-            }}>
-              {vibes.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setCurrentIndex(idx)}
+            {/* Pagination dots - only show if reasonable number of vibes */}
+            {vibes.length <= 50 && (
+              <div 
+                className={`controls-overlay ${showControls ? 'controls-visible' : 'controls-hidden'} flex justify-center`}
+                style={{ 
+                  gap: 'var(--hop-space-inline-sm)',
+                  marginTop: 'var(--hop-space-stack-xl)'
+                }}
+              >
+                {vibes.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentIndex(idx)}
+                    style={{
+                      height: '0.5rem',
+                      width: idx === currentIndex ? '2rem' : '0.5rem',
+                      backgroundColor: idx === currentIndex 
+                        ? 'var(--hop-primary-surface)' 
+                        : 'var(--hop-neutral-border-weak)',
+                      borderRadius: 'var(--hop-shape-pill)',
+                      border: 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s'
+                    }}
+                    className="hover:opacity-70"
+                    aria-label={`Go to vibe ${idx + 1}`}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Progress bar for large datasets */}
+            {vibes.length > 50 && (
+              <div 
+                className={`controls-overlay ${showControls ? 'controls-visible' : 'controls-hidden'} flex justify-center`}
+                style={{ 
+                  marginTop: 'var(--hop-space-stack-xl)'
+                }}
+              >
+                <div 
                   style={{
-                    height: '0.5rem',
-                    width: idx === currentIndex ? '2rem' : '0.5rem',
-                    backgroundColor: idx === currentIndex 
-                      ? 'var(--hop-primary-surface)' 
+                    width: '20rem',
+                    height: '0.75rem',
+                    backgroundColor: colorScheme === 'light' 
+                      ? 'var(--hop-neutral-surface)' 
                       : 'var(--hop-neutral-border-weak)',
                     borderRadius: 'var(--hop-shape-pill)',
-                    border: 'none',
+                    overflow: 'hidden',
                     cursor: 'pointer',
-                    transition: 'all 0.3s'
+                    position: 'relative',
+                    border: colorScheme === 'light' 
+                      ? '1px solid var(--hop-neutral-border)' 
+                      : 'none',
+                    boxShadow: colorScheme === 'light' 
+                      ? 'inset 0 1px 2px rgba(0, 0, 0, 0.1)' 
+                      : 'none'
                   }}
-                  className="hover:opacity-70"
-                  aria-label={`Go to vibe ${idx + 1}`}
-                />
-              ))}
-            </div>
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const clickX = e.clientX - rect.left;
+                    const percentage = clickX / rect.width;
+                    const targetIndex = Math.floor(percentage * vibes.length);
+                    const clampedIndex = Math.max(0, Math.min(targetIndex, vibes.length - 1));
+                    setCurrentIndex(clampedIndex);
+                  }}
+                  title={`Click to jump to position in ${vibes.length} Good Vibes`}
+                >
+                  <div style={{
+                    width: `${((currentIndex + 1) / vibes.length) * 100}%`,
+                    height: '100%',
+                    backgroundColor: colorScheme === 'light' 
+                      ? 'var(--hop-primary-text)' 
+                      : 'var(--hop-primary-surface)',
+                    borderRadius: 'var(--hop-shape-pill)',
+                    transition: 'width 0.3s ease',
+                    pointerEvents: 'none' // Prevent interference with parent click
+                  }} />
+                </div>
+              </div>
+            )}
 
             {/* Count below the dots */}
-            <div className="text-center" style={{ marginTop: 'var(--hop-space-stack-md)' }}>
+            <div 
+              className={`controls-overlay ${showControls ? 'controls-visible' : 'controls-hidden'} text-center`}
+              style={{ marginTop: 'var(--hop-space-stack-md)' }}
+            >
               <span style={{ 
                 fontSize: 'var(--hop-body-sm-font-size)',
                 color: 'var(--hop-neutral-text-weak)',

@@ -11,7 +11,7 @@ const root = ReactDOM.createRoot(
 );
 root.render(
   <React.StrictMode>
-    <HopperProvider withBodyStyle>
+    <HopperProvider colorScheme="system" defaultColorScheme="light" withBodyStyle>
       <App />
     </HopperProvider>
   </React.StrictMode>
