@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { WellnessIcon, RefreshIcon, PlayIcon, PauseIcon, NewCommentIcon, ArrowLeftIcon, ArrowRightIcon, SparklesIcon, LightbulbIcon } from '@hopper-ui/icons';
+import { WellnessIcon, RefreshIcon, PlayIcon, PauseIcon, NewCommentIcon, ArrowLeftIcon, ArrowRightIcon, SparklesIcon, LightbulbIcon, StarIcon, GiftIcon, HappinessIcon, ThumbsUpIcon, RocketIcon } from '@hopper-ui/icons';
 import { Avatar, useColorSchemeContext } from '@hopper-ui/components';
 import { GoodVibe, GoodVibesResponse } from './types';
 import './CarouselAnimations.css';
@@ -38,6 +38,40 @@ const GoodVibesCarousel: React.FC = () => {
   // Get a consistent color for each vibe based on its index
   const getVibeColor = (index: number) => {
     return decorativeColors[index % decorativeColors.length];
+  };
+
+  // Get a varied icon for the prompt badge based on content or index
+  const getPromptIcon = (vibe: GoodVibe, index: number) => {
+    const prompt = vibe.prompt || (vibe.cardPrompt?.[0]?.text || '');
+    const message = vibe.message?.toLowerCase() || '';
+    const combinedText = (prompt + ' ' + message).toLowerCase();
+    
+    // Icon keywords mapping
+    if (combinedText.includes('thank') || combinedText.includes('appreciate') || combinedText.includes('grateful')) {
+      return ThumbsUpIcon;
+    }
+    if (combinedText.includes('celebrate') || combinedText.includes('congrat') || combinedText.includes('achievement') || combinedText.includes('success')) {
+      return StarIcon;
+    }
+    if (combinedText.includes('gift') || combinedText.includes('present') || combinedText.includes('surprise')) {
+      return GiftIcon;
+    }
+    if (combinedText.includes('happy') || combinedText.includes('joy') || combinedText.includes('smile') || combinedText.includes('fun')) {
+      return HappinessIcon;
+    }
+    if (combinedText.includes('idea') || combinedText.includes('insight') || combinedText.includes('innovation') || combinedText.includes('creative')) {
+      return LightbulbIcon;
+    }
+    if (combinedText.includes('launch') || combinedText.includes('start') || combinedText.includes('new') || combinedText.includes('begin')) {
+      return RocketIcon;
+    }
+    if (combinedText.includes('special') || combinedText.includes('amazing') || combinedText.includes('awesome') || combinedText.includes('outstanding')) {
+      return SparklesIcon;
+    }
+    
+    // Fallback to cycling through icons based on index
+    const iconCycle = [WellnessIcon, StarIcon, HappinessIcon, ThumbsUpIcon, LightbulbIcon, GiftIcon, RocketIcon, SparklesIcon];
+    return iconCycle[index % iconCycle.length];
   };
 
   useEffect(() => {
@@ -448,11 +482,16 @@ const GoodVibesCarousel: React.FC = () => {
                   fontWeight: 'var(--hop-body-sm-medium-font-weight)',
                   lineHeight: 'var(--hop-body-sm-line-height)'
                 }}>
-                  <WellnessIcon style={{ 
-                    width: '1rem', 
-                    height: '1rem',
-                    color: `var(--hop-${getVibeColor(currentIndex)}-icon)`
-                  }} />
+                  {(() => {
+                    const IconComponent = getPromptIcon(vibes[currentIndex], currentIndex);
+                    return (
+                      <IconComponent style={{ 
+                        width: '1rem', 
+                        height: '1rem',
+                        color: `var(--hop-${getVibeColor(currentIndex)}-icon)`
+                      }} />
+                    );
+                  })()}
                   {vibes[currentIndex].prompt || (vibes[currentIndex].cardPrompt?.[0]?.text || '')}
                 </div>
               )}
