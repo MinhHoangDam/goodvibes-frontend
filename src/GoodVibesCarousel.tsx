@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { WellnessIcon, RefreshIcon, PlayIcon, PauseIcon, NewCommentIcon, ArrowLeftIcon, ArrowRightIcon, SparklesIcon, LightbulbIcon, StarIcon, GiftIcon, HappinessIcon, ThumbsUpIcon, RocketIcon } from '@hopper-ui/icons';
+import { WellnessIcon, RefreshIcon, PlayIcon, NewCommentIcon, ArrowLeftIcon, ArrowRightIcon, SparklesIcon, LightbulbIcon, StarIcon, GiftIcon, HappinessIcon, ThumbsUpIcon, RocketIcon } from '@hopper-ui/icons';
 import { Avatar, useColorSchemeContext } from '@hopper-ui/components';
 import { GoodVibe, GoodVibesResponse } from './types';
 import './CarouselAnimations.css';
@@ -17,7 +17,8 @@ const GoodVibesCarousel: React.FC = () => {
   const [hasCompletedReplyCycle, setHasCompletedReplyCycle] = useState<boolean>(false); // Track if we've shown all replies
   const [showControls, setShowControls] = useState<boolean>(false); // Track if controls should be visible
   const [mouseInactivityTimer, setMouseInactivityTimer] = useState<NodeJS.Timeout | null>(null);
-  
+  const [autoPlayProgress, setAutoPlayProgress] = useState<number>(0); // Track auto-play progress (0-100%)
+
   // Theme management
   const { colorScheme, setColorScheme } = useColorSchemeContext();
   
@@ -132,7 +133,7 @@ const GoodVibesCarousel: React.FC = () => {
     if (autoPlay && vibes.length > 1) {
       const timer = setInterval(() => {
         const currentVibe = vibes[currentIndex];
-        
+
         // If current vibe has more than maxVisibleReplies, wait for completion flag
         if (currentVibe?.replies && currentVibe.replies.length > maxVisibleReplies) {
           // Move to next vibe immediately when reply cycle is complete
@@ -140,16 +141,35 @@ const GoodVibesCarousel: React.FC = () => {
             setCurrentIndex((prev) => (prev + 1) % vibes.length);
             setHasCompletedReplyCycle(false); // Reset for next vibe
             setReplyStartIndex(0); // Reset reply index for next vibe
+            setAutoPlayProgress(0); // Reset progress
           }
         } else {
           // No replies or replies <= 2, proceed normally with regular timing
           setCurrentIndex((prev) => (prev + 1) % vibes.length);
           setReplyStartIndex(0); // Reset reply index for next vibe
+          setAutoPlayProgress(0); // Reset progress
         }
       }, autoPlayInterval);
       return () => clearInterval(timer);
     }
   }, [autoPlay, vibes.length, currentIndex, hasCompletedReplyCycle]);
+
+  // Update auto-play progress animation
+  useEffect(() => {
+    if (autoPlay && vibes.length > 1) {
+      setAutoPlayProgress(0); // Reset progress when starting
+      const startTime = Date.now();
+      const progressInterval = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min((elapsed / autoPlayInterval) * 100, 100);
+        setAutoPlayProgress(progress);
+      }, 50); // Update every 50ms for smooth animation
+
+      return () => clearInterval(progressInterval);
+    } else {
+      setAutoPlayProgress(0);
+    }
+  }, [autoPlay, currentIndex, vibes.length]);
 
   useEffect(() => {
     // Auto-fetch replies when viewing a Good Vibe that has replies but they haven't been loaded yet
@@ -352,17 +372,106 @@ const GoodVibesCarousel: React.FC = () => {
             opacity: 1;
             visibility: visible;
           }
+
+          /* Hide cursor when controls are hidden */
+          .cursor-hidden {
+            cursor: none !important;
+          }
+
+          .cursor-hidden * {
+            cursor: none !important;
+          }
         `}
       </style>
-      <div style={{ 
-        minHeight: '100vh',
-        backgroundColor: 'var(--hop-neutral-surface-weakest)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 'var(--hop-space-inset-xl)'
-      }}>
-      <div style={{ maxWidth: '56rem', width: '100%' }}>
+      <div
+        className={!showControls ? 'cursor-hidden' : ''}
+        style={{
+          minHeight: '100vh',
+          backgroundColor: 'var(--hop-neutral-surface-weakest)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 'var(--hop-space-inset-xl)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+        {/* Background decorations - theme-aware colors with high contrast and varying sizes */}
+        <img
+          src="/decorations/bang.svg"
+          alt=""
+          style={{
+            position: 'absolute',
+            top: '5%',
+            left: '8%',
+            width: '120px',
+            height: '120px',
+            opacity: colorScheme === 'light' ? 0.25 : 0.6,
+            pointerEvents: 'none',
+            color: colorScheme === 'light' ? 'var(--hop-decorative-option1-icon)' : 'var(--hop-decorative-option1-surface-strong)',
+            zIndex: 0
+          }}
+        />
+        <img
+          src="/decorations/lightning.svg"
+          alt=""
+          style={{
+            position: 'absolute',
+            top: '15%',
+            right: '10%',
+            width: '70px',
+            height: '70px',
+            opacity: colorScheme === 'light' ? 0.25 : 0.6,
+            pointerEvents: 'none',
+            color: colorScheme === 'light' ? 'var(--hop-decorative-option5-icon)' : 'var(--hop-decorative-option5-surface-strong)',
+            zIndex: 0
+          }}
+        />
+        <img
+          src="/decorations/heart.svg"
+          alt=""
+          style={{
+            position: 'absolute',
+            bottom: '18%',
+            left: '5%',
+            width: '110px',
+            height: '145px',
+            opacity: colorScheme === 'light' ? 0.25 : 0.6,
+            pointerEvents: 'none',
+            color: colorScheme === 'light' ? 'var(--hop-decorative-option8-icon)' : 'var(--hop-decorative-option8-surface-strong)',
+            zIndex: 0
+          }}
+        />
+        <img
+          src="/decorations/vector.svg"
+          alt=""
+          style={{
+            position: 'absolute',
+            bottom: '20%',
+            right: '8%',
+            width: '180px',
+            height: '90px',
+            opacity: colorScheme === 'light' ? 0.25 : 0.6,
+            pointerEvents: 'none',
+            color: colorScheme === 'light' ? 'var(--hop-decorative-option3-icon)' : 'var(--hop-decorative-option3-surface-strong)',
+            zIndex: 0
+          }}
+        />
+        <img
+          src="/decorations/group6.svg"
+          alt=""
+          style={{
+            position: 'absolute',
+            top: '40%',
+            right: '5%',
+            width: '200px',
+            height: '110px',
+            opacity: colorScheme === 'light' ? 0.2 : 0.5,
+            pointerEvents: 'none',
+            color: colorScheme === 'light' ? 'var(--hop-decorative-option2-icon)' : 'var(--hop-decorative-option2-surface-strong)',
+            zIndex: 0
+          }}
+        />
+      <div style={{ maxWidth: '56rem', width: '100%', position: 'relative', zIndex: 1 }}>
         <div className="text-center" style={{ marginBottom: 'var(--hop-space-stack-xl)', position: 'relative' }}>
           {/* Theme toggle button - positioned absolutely in top right */}
           <button
@@ -449,15 +558,15 @@ const GoodVibesCarousel: React.FC = () => {
 
         {!loading && !error && vibes.length > 0 && (
           <div className="relative vibe-card">
-            <div 
+            <div
               key={currentIndex}
               className="vibe-card-inner vibe-enter"
-              style={{ 
+              style={{
               backgroundColor: 'var(--hop-neutral-surface)',
               borderRadius: 'var(--hop-shape-rounded-lg)',
               boxShadow: 'var(--hop-elevation-lifted)',
               padding: 'var(--hop-space-inset-xl)',
-              minHeight: '400px',
+              minHeight: vibes[currentIndex].replyCount > 0 ? '400px' : '250px',
               borderLeft: `4px solid var(--hop-${getVibeColor(currentIndex)}-border)`,
               borderTop: '1px solid var(--hop-neutral-border-weak)',
               borderRight: '1px solid var(--hop-neutral-border-weak)',
@@ -577,56 +686,67 @@ const GoodVibesCarousel: React.FC = () => {
                   )}
                 </p>
 
-                {/* Sender and recipient info at the bottom */}
-                <div className="flex items-center justify-between" style={{ 
-                  marginTop: '8px',
-                  paddingTop: 'var(--hop-space-stack-sm)',
-                  borderTop: '1px solid var(--hop-neutral-border-weak)',
-                  fontSize: 'var(--hop-body-sm-font-size)',
-                  color: 'var(--hop-neutral-text-weak)'
-                }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--hop-space-stack-xs)' }}>
-                    {vibes[currentIndex].recipients && vibes[currentIndex].recipients.length > 0 && (
-                      <div className="flex items-center" style={{ gap: 'var(--hop-space-inline-xs)' }}>
-                        <span style={{ 
+                {/* Recipients above the divider */}
+                {vibes[currentIndex].recipients && vibes[currentIndex].recipients.length > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--hop-space-inline-xs)',
+                    flexWrap: 'wrap',
+                    marginTop: 'var(--hop-space-stack-md)',
+                    marginBottom: 'var(--hop-space-stack-xs)',
+                    fontSize: 'var(--hop-body-sm-font-size)',
+                    color: 'var(--hop-neutral-text-weak)'
+                  }}>
+                    <span style={{
+                      fontWeight: 'var(--hop-body-sm-semibold-font-weight)',
+                      fontSize: 'var(--hop-body-sm-font-size)',
+                      flexShrink: 0
+                    }}>To:</span>
+                    {vibes[currentIndex].recipients.map((recipient, idx) => (
+                      <React.Fragment key={`${recipient.userId || recipient.displayName}-${idx}`}>
+                        <Avatar
+                          name={recipient.displayName}
+                          size="sm"
+                          src={recipient.avatarUrl || undefined}
+                        />
+                        <span style={{
                           fontWeight: 'var(--hop-body-sm-semibold-font-weight)',
                           fontSize: 'var(--hop-body-sm-font-size)'
-                        }}>To:</span>
-                        {vibes[currentIndex].recipients.map((recipient, idx) => (
-                          <React.Fragment key={idx}>
-                            <Avatar 
-                              name={recipient.displayName} 
-                              size="sm"
-                              src={recipient.avatarUrl || undefined}
-                            />
-                            <span style={{ 
-                              fontWeight: 'var(--hop-body-sm-semibold-font-weight)',
-                              fontSize: 'var(--hop-body-sm-font-size)'
-                            }}>
-                              {recipient.displayName}
-                            </span>
-                            {idx < vibes[currentIndex].recipients.length - 1 && <span>,</span>}
-                          </React.Fragment>
-                        ))}
-                      </div>
-                    )}
-                    <div className="flex items-center" style={{ gap: 'var(--hop-space-inline-xs)' }}>
-                      <span style={{ 
-                        fontSize: 'var(--hop-body-sm-font-size)'
-                      }}>From:</span>
-                      <Avatar 
-                        name={vibes[currentIndex].senderUser.displayName} 
-                        size="sm"
-                        src={vibes[currentIndex].senderUser.avatarUrl || undefined}
-                      />
-                      <span style={{ 
-                        fontSize: 'var(--hop-body-sm-font-size)'
-                      }}>
-                        {vibes[currentIndex].senderUser.displayName}
-                      </span>
-                    </div>
+                        }}>
+                          {recipient.displayName}
+                        </span>
+                        {idx < vibes[currentIndex].recipients.length - 1 && <span>,</span>}
+                      </React.Fragment>
+                    ))}
                   </div>
-                  <div>
+                )}
+
+                {/* Sender and date info below the divider */}
+                <div className="flex items-center justify-between" style={{
+                  paddingTop: 'var(--hop-space-stack-sm)',
+                  borderTop: '1px solid var(--hop-neutral-border-weak)',
+                  fontSize: 'var(--hop-body-xs-font-size)',
+                  color: 'var(--hop-neutral-text-weak)'
+                }}>
+                  <div className="flex items-center" style={{ gap: 'var(--hop-space-inline-xs)' }}>
+                    <span style={{
+                      fontSize: 'var(--hop-body-xs-font-size)'
+                    }}>From:</span>
+                    <Avatar
+                      name={vibes[currentIndex].senderUser.displayName}
+                      size="xs"
+                      src={vibes[currentIndex].senderUser.avatarUrl || undefined}
+                    />
+                    <span style={{
+                      fontSize: 'var(--hop-body-xs-font-size)'
+                    }}>
+                      {vibes[currentIndex].senderUser.displayName}
+                    </span>
+                  </div>
+                  <div style={{
+                    fontSize: 'var(--hop-body-xs-font-size)'
+                  }}>
                     {formatDate(vibes[currentIndex].creationDate)}
                   </div>
                 </div>
@@ -816,7 +936,36 @@ const GoodVibesCarousel: React.FC = () => {
                   className="flex items-center transition-colors hover:opacity-80"
                   aria-label={autoPlay ? 'Pause auto-play' : 'Start auto-play'}
                 >
-                  {autoPlay ? <PauseIcon style={{ width: '1rem', height: '1rem' }} /> : <PlayIcon style={{ width: '1rem', height: '1rem' }} />}
+                  {autoPlay ? (
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      style={{ width: '1rem', height: '1rem' }}
+                    >
+                      {/* Left bar with fill animation */}
+                      <rect x="3" y="2" width="4" height="12" rx="1" fill="currentColor" opacity="0.2" />
+                      <rect
+                        x="3"
+                        y="2"
+                        width="4"
+                        height={`${12 * (autoPlayProgress / 100)}`}
+                        rx="1"
+                        fill="currentColor"
+                      />
+                      {/* Right bar with fill animation */}
+                      <rect x="9" y="2" width="4" height="12" rx="1" fill="currentColor" opacity="0.2" />
+                      <rect
+                        x="9"
+                        y="2"
+                        width="4"
+                        height={`${12 * (autoPlayProgress / 100)}`}
+                        rx="1"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  ) : <PlayIcon style={{ width: '1rem', height: '1rem' }} />}
                   {autoPlay ? 'Pause' : 'Auto-play'}
                 </button>
               </div>
