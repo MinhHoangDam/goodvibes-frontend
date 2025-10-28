@@ -1,12 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { WellnessIcon, RefreshIcon, PlayIcon, NewCommentIcon, ArrowLeftIcon, ArrowRightIcon, SparklesIcon, LightbulbIcon, StarIcon, GiftIcon, HappinessIcon, ThumbsUpIcon, RocketIcon } from '@hopper-ui/icons';
+import { WellnessIcon, RefreshIcon, PlayIcon, NewCommentIcon, ArrowLeftIcon, ArrowRightIcon, SparklesIcon, LightbulbIcon, StarIcon, GiftIcon, HappinessIcon, ThumbsUpIcon, RocketIcon, CollapseRightIcon } from '@hopper-ui/icons';
 import { Avatar, useColorSchemeContext } from '@hopper-ui/components';
 import { GoodVibe, GoodVibesResponse } from './types';
 import './CarouselAnimations.css';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
-const GoodVibesCarousel: React.FC = () => {
+interface GoodVibesCarouselProps {
+  onVibeChange?: (date: Date) => void;
+  showLeaderboard?: boolean;
+  onToggleLeaderboard?: () => void;
+}
+
+const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, showLeaderboard, onToggleLeaderboard }) => {
   const [vibes, setVibes] = useState<GoodVibe[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
@@ -78,6 +84,16 @@ const GoodVibesCarousel: React.FC = () => {
   useEffect(() => {
     fetchGoodVibes();
   }, []);
+
+  // Notify parent when current vibe changes
+  useEffect(() => {
+    if (vibes.length > 0 && onVibeChange) {
+      const currentVibe = vibes[currentIndex];
+      if (currentVibe && currentVibe.creationDate) {
+        onVibeChange(new Date(currentVibe.creationDate));
+      }
+    }
+  }, [currentIndex, vibes, onVibeChange]);
 
   // Auto-refresh Good Vibes every hour
   useEffect(() => {
@@ -386,124 +402,30 @@ const GoodVibesCarousel: React.FC = () => {
       <div
         className={!showControls ? 'cursor-hidden' : ''}
         style={{
-          minHeight: '100vh',
-          backgroundColor: 'var(--hop-neutral-surface-weakest)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: 'var(--hop-space-inset-xl)',
           position: 'relative',
-          overflow: 'hidden'
+          overflow: 'visible'
         }}>
-        {/* Background decorations - theme-aware colors with high contrast and varying sizes */}
-        <img
-          src="/decorations/bang.svg"
-          alt=""
-          style={{
-            position: 'absolute',
-            top: '5%',
-            left: '8%',
-            width: '120px',
-            height: '120px',
-            opacity: colorScheme === 'light' ? 0.25 : 0.6,
-            pointerEvents: 'none',
-            color: colorScheme === 'light' ? 'var(--hop-decorative-option1-icon)' : 'var(--hop-decorative-option1-surface-strong)',
-            zIndex: 0
-          }}
-        />
-        <img
-          src="/decorations/lightning.svg"
-          alt=""
-          style={{
-            position: 'absolute',
-            top: '15%',
-            right: '10%',
-            width: '70px',
-            height: '70px',
-            opacity: colorScheme === 'light' ? 0.25 : 0.6,
-            pointerEvents: 'none',
-            color: colorScheme === 'light' ? 'var(--hop-decorative-option5-icon)' : 'var(--hop-decorative-option5-surface-strong)',
-            zIndex: 0
-          }}
-        />
+        {/* Background decorations - positioned in margins around the carousel card */}
         <img
           src="/decorations/heart.svg"
           alt=""
           style={{
             position: 'absolute',
-            bottom: '18%',
-            left: '5%',
-            width: '110px',
-            height: '145px',
-            opacity: colorScheme === 'light' ? 0.25 : 0.6,
+            bottom: '3%',
+            left: '0',
+            width: '112px',
+            height: '150px',
+            opacity: colorScheme === 'light' ? 0.2 : 0.5,
             pointerEvents: 'none',
             color: colorScheme === 'light' ? 'var(--hop-decorative-option8-icon)' : 'var(--hop-decorative-option8-surface-strong)',
             zIndex: 0
           }}
         />
-        <img
-          src="/decorations/vector.svg"
-          alt=""
-          style={{
-            position: 'absolute',
-            bottom: '20%',
-            right: '8%',
-            width: '180px',
-            height: '90px',
-            opacity: colorScheme === 'light' ? 0.25 : 0.6,
-            pointerEvents: 'none',
-            color: colorScheme === 'light' ? 'var(--hop-decorative-option3-icon)' : 'var(--hop-decorative-option3-surface-strong)',
-            zIndex: 0
-          }}
-        />
-        <img
-          src="/decorations/group6.svg"
-          alt=""
-          style={{
-            position: 'absolute',
-            top: '40%',
-            right: '5%',
-            width: '200px',
-            height: '110px',
-            opacity: colorScheme === 'light' ? 0.2 : 0.5,
-            pointerEvents: 'none',
-            color: colorScheme === 'light' ? 'var(--hop-decorative-option2-icon)' : 'var(--hop-decorative-option2-surface-strong)',
-            zIndex: 0
-          }}
-        />
       <div style={{ maxWidth: '56rem', width: '100%', position: 'relative', zIndex: 1 }}>
         <div className="text-center" style={{ marginBottom: 'var(--hop-space-stack-xl)', position: 'relative' }}>
-          {/* Theme toggle button - positioned absolutely in top right */}
-          <button
-            onClick={toggleTheme}
-            className={`controls-overlay ${showControls ? 'controls-visible' : 'controls-hidden'} hover:opacity-80`}
-            style={{
-              position: 'absolute',
-              top: '0',
-              right: '0',
-              backgroundColor: 'var(--hop-neutral-surface)',
-              border: '1px solid var(--hop-neutral-border-weak)',
-              borderRadius: 'var(--hop-shape-circle)',
-              padding: 'var(--hop-space-inset-sm)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.2s ease',
-              boxShadow: 'var(--hop-elevation-lifted)'
-            }}
-            aria-label={`Switch to ${colorScheme === 'light' ? 'dark' : 'light'} mode`}
-            title={`Switch to ${colorScheme === 'light' ? 'dark' : 'light'} mode`}
-          >
-            <LightbulbIcon 
-              style={{ 
-                width: '1.25rem', 
-                height: '1.25rem', 
-                color: 'var(--hop-neutral-icon)' 
-              }} 
-            />
-          </button>
-
           <h1 style={{ 
             fontSize: 'var(--hop-heading-xl-font-size)',
             fontWeight: 'var(--hop-heading-xl-font-weight)',
@@ -822,14 +744,14 @@ const GoodVibesCarousel: React.FC = () => {
                                   color: 'var(--hop-neutral-text)',
                                   marginBottom: 'var(--hop-space-stack-sm)'
                                 }}>{reply.message}</p>
-                                <div className="flex items-center justify-between" style={{ 
+                                <div className="flex items-center justify-between" style={{
                                   fontSize: 'var(--hop-body-xs-font-size)',
                                   color: 'var(--hop-neutral-text)'
                                 }}>
                                   <div className="flex items-center" style={{ gap: 'var(--hop-space-inline-xs)' }}>
-                                    <Avatar 
-                                      name={reply.authorUser.displayName} 
-                                      size="xs" 
+                                    <Avatar
+                                      name={reply.authorUser.displayName}
+                                      size="xs"
                                       src={reply.authorUser.avatarUrl || undefined}
                                     />
                                     <span style={{ fontWeight: 'var(--hop-body-xs-semibold-font-weight)' }}>{reply.authorUser.displayName}</span>
@@ -1081,11 +1003,11 @@ const GoodVibesCarousel: React.FC = () => {
             )}
 
             {/* Count below the dots */}
-            <div 
+            <div
               className={`controls-overlay ${showControls ? 'controls-visible' : 'controls-hidden'} text-center`}
               style={{ marginTop: 'var(--hop-space-stack-md)' }}
             >
-              <span style={{ 
+              <span style={{
                 fontSize: 'var(--hop-body-sm-font-size)',
                 color: 'var(--hop-neutral-text-weak)',
                 fontWeight: 'var(--hop-body-sm-medium-font-weight)'
@@ -1093,8 +1015,87 @@ const GoodVibesCarousel: React.FC = () => {
                 {currentIndex + 1} of {vibes.length}
               </span>
             </div>
+
           </div>
         )}
+
+        {/* Control buttons - positioned below the carousel */}
+        <div
+          className={`controls-overlay ${showControls ? 'controls-visible' : 'controls-hidden'}`}
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: 'var(--hop-space-inline-xs)',
+            marginTop: 'var(--hop-space-stack-xs)'
+          }}
+        >
+          {/* Leaderboard toggle button */}
+          {onToggleLeaderboard && (
+            <button
+              onClick={onToggleLeaderboard}
+              className="hover:opacity-80"
+              style={{
+                backgroundColor: 'var(--hop-neutral-surface)',
+                border: '1px solid var(--hop-neutral-border-weak)',
+                borderRadius: 'var(--hop-shape-circle)',
+                padding: 'var(--hop-space-inset-sm)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s ease'
+              }}
+              aria-label={showLeaderboard ? 'Hide leaderboard' : 'Show leaderboard'}
+              title={showLeaderboard ? 'Hide leaderboard' : 'Show leaderboard'}
+            >
+              {showLeaderboard ? (
+                <CollapseRightIcon
+                  style={{
+                    width: '1.25rem',
+                    height: '1.25rem',
+                    color: 'var(--hop-primary-icon)',
+                    transform: 'rotate(180deg)'
+                  }}
+                />
+              ) : (
+                <StarIcon
+                  style={{
+                    width: '1.25rem',
+                    height: '1.25rem',
+                    color: 'var(--hop-primary-icon)'
+                  }}
+                />
+              )}
+            </button>
+          )}
+
+          {/* Theme toggle button */}
+          <button
+            onClick={toggleTheme}
+            className="hover:opacity-80"
+            style={{
+              backgroundColor: 'var(--hop-neutral-surface)',
+              border: '1px solid var(--hop-neutral-border-weak)',
+              borderRadius: 'var(--hop-shape-circle)',
+              padding: 'var(--hop-space-inset-sm)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s ease'
+            }}
+            aria-label={`Switch to ${colorScheme === 'light' ? 'dark' : 'light'} mode`}
+            title={`Switch to ${colorScheme === 'light' ? 'dark' : 'light'} mode`}
+          >
+            <LightbulbIcon
+              style={{
+                width: '1.25rem',
+                height: '1.25rem',
+                color: 'var(--hop-primary-icon)'
+              }}
+            />
+          </button>
+        </div>
       </div>
       </div>
     </>
