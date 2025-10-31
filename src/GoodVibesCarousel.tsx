@@ -29,7 +29,7 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
   // Theme management
   const { colorScheme, setColorScheme } = useColorSchemeContext();
   
-  const autoPlayInterval = 5000;
+  const autoPlayInterval = 15000; // 15 seconds for better readability
   const maxVisibleReplies = 2; // Show only 2 replies at a time
   const controlsHideDelay = 7000; // 7 seconds
 
@@ -542,11 +542,15 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
               borderRadius: 'var(--hop-shape-rounded-lg)',
               boxShadow: 'var(--hop-elevation-lifted)',
               padding: 'var(--hop-space-inset-xl)',
-              minHeight: vibes[currentIndex].replyCount > 0 ? '400px' : '250px',
+              maxHeight: '70vh',
+              minHeight: '400px',
+              display: 'flex',
+              flexDirection: 'column',
               borderLeft: `4px solid var(--hop-${getVibeColor(currentIndex)}-border)`,
               borderTop: '1px solid var(--hop-neutral-border-weak)',
               borderRight: '1px solid var(--hop-neutral-border-weak)',
-              borderBottom: '1px solid var(--hop-neutral-border-weak)'
+              borderBottom: '1px solid var(--hop-neutral-border-weak)',
+              overflow: 'hidden'
             }}>
               {/* Prompt badge in upper left corner - show custom prompt or default cardPrompt */}
               {(vibes[currentIndex].prompt || (vibes[currentIndex].cardPrompt && vibes[currentIndex].cardPrompt!.length > 0)) && (
@@ -625,22 +629,27 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
                 </div>
               )}
 
-              <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column', 
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
                 gap: 'var(--hop-space-stack-xl)',
                 paddingTop: (vibes[currentIndex].prompt || (vibes[currentIndex].cardPrompt && vibes[currentIndex].cardPrompt!.length > 0))
-                  ? 'calc(var(--hop-space-stack-xl) + var(--hop-space-stack-lg))' 
-                  : '0'
+                  ? 'calc(var(--hop-space-stack-xl) + var(--hop-space-stack-lg))'
+                  : '0',
+                flex: 1,
+                overflowY: 'auto',
+                overflowX: 'hidden'
               }}>
-                <p 
+                <p
                   className="fade-in-content fade-delay-1 vibe-content-unfold"
-                  style={{ 
+                  style={{
                     fontSize: 'var(--hop-heading-lg-font-size)',
                     fontWeight: 'var(--hop-heading-lg-font-weight)',
                     lineHeight: 'var(--hop-heading-lg-line-height)',
                     color: 'var(--hop-neutral-text)',
-                    textAlign: 'center'
+                    textAlign: 'center',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'break-word'
                   }}>
                   {vibes[currentIndex].message.trim() ? (
                     vibes[currentIndex].message
