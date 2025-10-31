@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Avatar, useColorSchemeContext } from '@hopper-ui/components';
-import { StarIcon, ThumbsUpIcon, AngleDownIcon, AngleUpIcon } from '@hopper-ui/icons';
+import { StarIcon, ThumbsUpIcon, AngleDownIcon, AngleUpIcon, ApplauseIcon } from '@hopper-ui/icons';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 
@@ -145,6 +145,7 @@ const MonthlyLeaderboard: React.FC<MonthlyLeaderboardProps> = ({ currentVibeDate
         {currentVibeDate && !isCollapsed && (
           <p style={{
             fontSize: 'var(--hop-body-sm-font-size)',
+            fontWeight: 'var(--hop-body-sm-semibold-font-weight)',
             color: 'var(--hop-neutral-text-weak)',
             margin: 0
           }}>
@@ -174,7 +175,7 @@ const MonthlyLeaderboard: React.FC<MonthlyLeaderboardProps> = ({ currentVibeDate
               gap: 'var(--hop-space-inline-xs)',
               marginBottom: 'var(--hop-space-stack-md)'
             }}>
-              <StarIcon style={{ width: '1.25rem', height: '1.25rem', color: 'var(--hop-neutral-icon)' }} />
+              <ApplauseIcon style={{ width: '1.25rem', height: '1.25rem', color: 'var(--hop-neutral-icon)' }} />
               <h3 style={{
                 fontSize: 'var(--hop-body-md-font-size)',
                 fontWeight: 'var(--hop-body-md-semibold-font-weight)',

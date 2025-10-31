@@ -2,14 +2,18 @@ import React, { useState } from 'react';
 import GoodVibesCarousel from './GoodVibesCarousel';
 import MonthlyLeaderboard from './MonthlyLeaderboard';
 import { useColorSchemeContext } from '@hopper-ui/components';
+import './App.css';
 
 function App() {
   const [currentVibeDate, setCurrentVibeDate] = useState<Date | null>(null);
   const [showLeaderboard, setShowLeaderboard] = useState<boolean>(true);
+  const [showControls, setShowControls] = useState<boolean>(false);
   const { colorScheme } = useColorSchemeContext();
 
   return (
-    <div style={{
+    <div
+      className={!showControls ? 'cursor-hidden' : ''}
+      style={{
       minHeight: '100vh',
       padding: 'var(--hop-space-inset-xl)',
       backgroundColor: 'var(--hop-neutral-surface-weakest)',
@@ -53,8 +57,8 @@ function App() {
         alt=""
         style={{
           position: 'absolute',
-          bottom: '15%',
-          right: '30%',
+          bottom: '18%',
+          right: '35%',
           width: '225px',
           height: '112px',
           opacity: colorScheme === 'light' ? 0.25 : 0.6,
@@ -79,6 +83,21 @@ function App() {
           zIndex: 0
         }}
       />
+      <img
+        src="/decorations/heart.svg"
+        alt=""
+        style={{
+          position: 'absolute',
+          bottom: '15%',
+          left: '10%',
+          width: '112px',
+          height: '150px',
+          opacity: colorScheme === 'light' ? 0.25 : 0.6,
+          pointerEvents: 'none',
+          color: colorScheme === 'light' ? 'var(--hop-decorative-option8-icon)' : 'var(--hop-decorative-option8-surface-strong)',
+          zIndex: 0
+        }}
+      />
 
       <div style={{
         display: 'flex',
@@ -98,6 +117,7 @@ function App() {
             onVibeChange={setCurrentVibeDate}
             showLeaderboard={showLeaderboard}
             onToggleLeaderboard={() => setShowLeaderboard(!showLeaderboard)}
+            onControlsChange={setShowControls}
           />
         </div>
         {showLeaderboard && (

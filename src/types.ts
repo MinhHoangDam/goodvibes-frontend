@@ -40,8 +40,9 @@ export interface GoodVibe {
 export interface GoodVibesResponse {
   data: GoodVibe[];
   metadata?: {
-    continuationToken: string;
-    pageSize: number;
-    totalCount: number;
+    continuationToken?: string;
+    pageSize?: number;
+    totalCount?: number;
+    cacheReady?: boolean;
   };
 }

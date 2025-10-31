@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { WellnessIcon, RefreshIcon, PlayIcon, NewCommentIcon, ArrowLeftIcon, ArrowRightIcon, SparklesIcon, LightbulbIcon, StarIcon, GiftIcon, HappinessIcon, ThumbsUpIcon, RocketIcon, CollapseRightIcon } from '@hopper-ui/icons';
+import { WellnessIcon, RefreshIcon, PlayIcon, NewCommentIcon, ArrowLeftIcon, ArrowRightIcon, SparklesIcon, LightbulbIcon, StarIcon, GiftIcon, HappinessIcon, ThumbsUpIcon, RocketIcon, CollapseRightIcon, ApplauseIcon } from '@hopper-ui/icons';
 import { Avatar, useColorSchemeContext } from '@hopper-ui/components';
 import { GoodVibe, GoodVibesResponse } from './types';
 import './CarouselAnimations.css';
@@ -10,9 +10,10 @@ interface GoodVibesCarouselProps {
   onVibeChange?: (date: Date) => void;
   showLeaderboard?: boolean;
   onToggleLeaderboard?: () => void;
+  onControlsChange?: (show: boolean) => void;
 }
 
-const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, showLeaderboard, onToggleLeaderboard }) => {
+const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, showLeaderboard, onToggleLeaderboard, onControlsChange }) => {
   const [vibes, setVibes] = useState<GoodVibe[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
@@ -94,6 +95,13 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
       }
     }
   }, [currentIndex, vibes, onVibeChange]);
+
+  // Notify parent when controls visibility changes
+  useEffect(() => {
+    if (onControlsChange) {
+      onControlsChange(showControls);
+    }
+  }, [showControls, onControlsChange]);
 
   // Auto-refresh Good Vibes every hour
   useEffect(() => {
@@ -197,56 +205,38 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
   const fetchGoodVibes = async (): Promise<void> => {
     setLoading(true);
     setError(null);
-    
+
     try {
-      let allVibes: GoodVibe[] = [];
-      let continuationToken: string | undefined = undefined;
-      let totalFetched = 0;
-      const maxPages = 10; // Safety limit to prevent infinite loops
-      let pageCount = 0;
+      // Use the fast cached endpoint - fetches all data in one request
+      const url = `${API_BASE_URL}/api/good-vibes/cached`;
 
-      // Fetch all pages until no more data
-      do {
-        pageCount++;
-        const url = continuationToken 
-          ? `${API_BASE_URL}/api/good-vibes?isPublic=true&continuationToken=${continuationToken}`
-          : `${API_BASE_URL}/api/good-vibes?isPublic=true`;
-        
-        console.log(`🔄 Fetching page ${pageCount}, URL: ${url}`);
-        
-        const response = await fetch(url);
+      console.log(`🔄 Fetching from cached endpoint: ${url}`);
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
-        }
+      const response = await fetch(url);
 
-        const data: GoodVibesResponse = await response.json();
-        const pageVibes = data.data || [];
-        
-        allVibes = [...allVibes, ...pageVibes];
-        totalFetched += pageVibes.length;
-        continuationToken = data.metadata?.continuationToken;
-        
-        console.log(`📄 Page ${pageCount} results:`, {
-          pageSize: pageVibes.length,
-          totalSoFar: totalFetched,
-          totalAvailable: data.metadata?.totalCount,
-          hasMorePages: !!continuationToken
-        });
-        
-        // Safety check to prevent infinite loops
-        if (pageCount >= maxPages) {
-          console.warn(`⚠️ Reached maximum page limit (${maxPages}), stopping fetch`);
-          break;
-        }
-        
-      } while (continuationToken && pageCount < maxPages);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
+      }
 
-      console.log('✅ Final results:', {
-        totalFetched: allVibes.length,
-        pagesLoaded: pageCount
+      const data: GoodVibesResponse = await response.json();
+
+      // Check if cache is ready
+      if (data.metadata && 'cacheReady' in data.metadata && !data.metadata.cacheReady) {
+        console.log('⏳ Cache is still loading, will retry in 2 seconds...');
+        // Cache not ready yet, retry after a short delay
+        setTimeout(() => {
+          fetchGoodVibes();
+        }, 2000);
+        return;
+      }
+
+      const allVibes = data.data || [];
+
+      console.log('✅ Loaded from cache:', {
+        totalVibes: allVibes.length,
+        cacheReady: data.metadata?.cacheReady
       });
-      
+
       if (allVibes.length === 0) {
         setError('No Good Vibes found');
       } else {
@@ -400,7 +390,6 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
         `}
       </style>
       <div
-        className={!showControls ? 'cursor-hidden' : ''}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -408,25 +397,90 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
           position: 'relative',
           overflow: 'visible'
         }}>
-        {/* Background decorations - positioned in margins around the carousel card */}
-        <img
-          src="/decorations/heart.svg"
-          alt=""
-          style={{
-            position: 'absolute',
-            bottom: '3%',
-            left: '0',
-            width: '112px',
-            height: '150px',
-            opacity: colorScheme === 'light' ? 0.2 : 0.5,
-            pointerEvents: 'none',
-            color: colorScheme === 'light' ? 'var(--hop-decorative-option8-icon)' : 'var(--hop-decorative-option8-surface-strong)',
-            zIndex: 0
-          }}
-        />
       <div style={{ maxWidth: '56rem', width: '100%', position: 'relative', zIndex: 1 }}>
         <div className="text-center" style={{ marginBottom: 'var(--hop-space-stack-xl)', position: 'relative' }}>
-          <h1 style={{ 
+          {/* Control buttons - positioned in top right */}
+          <div
+            className={`controls-overlay ${showControls ? 'controls-visible' : 'controls-hidden'}`}
+            style={{
+              position: 'absolute',
+              top: '0',
+              right: '0',
+              display: 'flex',
+              gap: 'var(--hop-space-inline-xs)'
+            }}
+          >
+            {/* Theme toggle button */}
+            <button
+              onClick={toggleTheme}
+              className="hover:opacity-80"
+              style={{
+                backgroundColor: 'var(--hop-neutral-surface)',
+                border: '1px solid var(--hop-neutral-border-weak)',
+                borderRadius: 'var(--hop-shape-circle)',
+                padding: 'var(--hop-space-inset-sm)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s ease',
+                boxShadow: 'var(--hop-elevation-lifted)'
+              }}
+              aria-label={`Switch to ${colorScheme === 'light' ? 'dark' : 'light'} mode`}
+              title={`Switch to ${colorScheme === 'light' ? 'dark' : 'light'} mode`}
+            >
+              <LightbulbIcon
+                style={{
+                  width: '1.25rem',
+                  height: '1.25rem',
+                  color: 'var(--hop-primary-icon)'
+                }}
+              />
+            </button>
+
+            {/* Leaderboard toggle button */}
+            {onToggleLeaderboard && (
+              <button
+                onClick={onToggleLeaderboard}
+                className="hover:opacity-80"
+                style={{
+                  backgroundColor: 'var(--hop-neutral-surface)',
+                  border: '1px solid var(--hop-neutral-border-weak)',
+                  borderRadius: 'var(--hop-shape-circle)',
+                  padding: 'var(--hop-space-inset-sm)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s ease',
+                  boxShadow: 'var(--hop-elevation-lifted)'
+                }}
+                aria-label={showLeaderboard ? 'Hide leaderboard' : 'Show leaderboard'}
+                title={showLeaderboard ? 'Hide leaderboard' : 'Show leaderboard'}
+              >
+                {showLeaderboard ? (
+                  <CollapseRightIcon
+                    style={{
+                      width: '1.25rem',
+                      height: '1.25rem',
+                      color: 'var(--hop-primary-icon)',
+                      transform: 'rotate(180deg)'
+                    }}
+                  />
+                ) : (
+                  <ApplauseIcon
+                    style={{
+                      width: '1.25rem',
+                      height: '1.25rem',
+                      color: 'var(--hop-primary-icon)'
+                    }}
+                  />
+                )}
+              </button>
+            )}
+          </div>
+
+          <h1 style={{
             fontSize: 'var(--hop-heading-xl-font-size)',
             fontWeight: 'var(--hop-heading-xl-font-weight)',
             lineHeight: 'var(--hop-heading-xl-line-height)',
@@ -1018,84 +1072,6 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
 
           </div>
         )}
-
-        {/* Control buttons - positioned below the carousel */}
-        <div
-          className={`controls-overlay ${showControls ? 'controls-visible' : 'controls-hidden'}`}
-          style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: 'var(--hop-space-inline-xs)',
-            marginTop: 'var(--hop-space-stack-xs)'
-          }}
-        >
-          {/* Leaderboard toggle button */}
-          {onToggleLeaderboard && (
-            <button
-              onClick={onToggleLeaderboard}
-              className="hover:opacity-80"
-              style={{
-                backgroundColor: 'var(--hop-neutral-surface)',
-                border: '1px solid var(--hop-neutral-border-weak)',
-                borderRadius: 'var(--hop-shape-circle)',
-                padding: 'var(--hop-space-inset-sm)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s ease'
-              }}
-              aria-label={showLeaderboard ? 'Hide leaderboard' : 'Show leaderboard'}
-              title={showLeaderboard ? 'Hide leaderboard' : 'Show leaderboard'}
-            >
-              {showLeaderboard ? (
-                <CollapseRightIcon
-                  style={{
-                    width: '1.25rem',
-                    height: '1.25rem',
-                    color: 'var(--hop-primary-icon)',
-                    transform: 'rotate(180deg)'
-                  }}
-                />
-              ) : (
-                <StarIcon
-                  style={{
-                    width: '1.25rem',
-                    height: '1.25rem',
-                    color: 'var(--hop-primary-icon)'
-                  }}
-                />
-              )}
-            </button>
-          )}
-
-          {/* Theme toggle button */}
-          <button
-            onClick={toggleTheme}
-            className="hover:opacity-80"
-            style={{
-              backgroundColor: 'var(--hop-neutral-surface)',
-              border: '1px solid var(--hop-neutral-border-weak)',
-              borderRadius: 'var(--hop-shape-circle)',
-              padding: 'var(--hop-space-inset-sm)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.2s ease'
-            }}
-            aria-label={`Switch to ${colorScheme === 'light' ? 'dark' : 'light'} mode`}
-            title={`Switch to ${colorScheme === 'light' ? 'dark' : 'light'} mode`}
-          >
-            <LightbulbIcon
-              style={{
-                width: '1.25rem',
-                height: '1.25rem',
-                color: 'var(--hop-primary-icon)'
-              }}
-            />
-          </button>
-        </div>
       </div>
       </div>
     </>
