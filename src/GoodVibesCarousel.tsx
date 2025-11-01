@@ -294,9 +294,10 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
       console.log(`📐 Screen size: ${window.screen.width}x${window.screen.height}, using avatar size: ${avatarSize}`);
 
       // Progressive loading strategy: First load recent 30 days for fast initial display
-      const recentUrl = `${API_BASE_URL}/api/good-vibes/cached?daysBack=30&avatarSize=${avatarSize}`;
+      // Skip avatars for instant response, avatars will fallback to initials
+      const recentUrl = `${API_BASE_URL}/api/good-vibes/cached?daysBack=30&skipAvatars=true`;
 
-      console.log(`🔄 Fetching recent vibes (30 days): ${recentUrl}`);
+      console.log(`🔄 Fetching recent vibes (30 days, no avatars): ${recentUrl}`);
 
       const recentResponse = await fetch(recentUrl);
 
