@@ -43,6 +43,8 @@ export interface GoodVibesResponse {
     continuationToken?: string;
     pageSize?: number;
     totalCount?: number;
+    filteredCount?: number;
+    monthsBack?: number;
     cacheReady?: boolean;
   };
 }

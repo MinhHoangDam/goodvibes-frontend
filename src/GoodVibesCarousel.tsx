@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { WellnessIcon, RefreshIcon, PlayIcon, NewCommentIcon, ArrowLeftIcon, ArrowRightIcon, SparklesIcon, LightbulbIcon, StarIcon, GiftIcon, HappinessIcon, ThumbsUpIcon, RocketIcon, CollapseRightIcon, ApplauseIcon } from '@hopper-ui/icons';
 import { Avatar, useColorSchemeContext } from '@hopper-ui/components';
 import { GoodVibe, GoodVibesResponse } from './types';
@@ -25,11 +25,12 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
   const [showControls, setShowControls] = useState<boolean>(false); // Track if controls should be visible
   const [mouseInactivityTimer, setMouseInactivityTimer] = useState<NodeJS.Timeout | null>(null);
   const [autoPlayProgress, setAutoPlayProgress] = useState<number>(0); // Track auto-play progress (0-100%)
+  const messageRef = useRef<HTMLParagraphElement>(null); // Ref for auto-scrolling message
 
   // Theme management
   const { colorScheme, setColorScheme } = useColorSchemeContext();
   
-  const autoPlayInterval = 15000; // 15 seconds for better readability
+  const autoPlayInterval = 11000; // 11 seconds
   const maxVisibleReplies = 2; // Show only 2 replies at a time
   const controlsHideDelay = 7000; // 7 seconds
 
@@ -202,26 +203,85 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
     }
   }, [currentIndex, vibes]);
 
+  // Auto-scroll message content if it overflows
+  useEffect(() => {
+    // Wait for DOM to update and animations to settle
+    const initTimeout = setTimeout(() => {
+      const messageElement = messageRef.current;
+      if (!messageElement) return;
+
+      // Reset scroll position
+      messageElement.scrollTop = 0;
+
+      // Check if content overflows
+      const hasOverflow = messageElement.scrollHeight > messageElement.clientHeight;
+      if (!hasOverflow) return;
+
+      let scrollInterval: NodeJS.Timeout;
+      let pauseTimeout: NodeJS.Timeout;
+
+      const startScrolling = () => {
+        // Wait 2 seconds before starting to scroll
+        pauseTimeout = setTimeout(() => {
+          scrollInterval = setInterval(() => {
+            const element = messageRef.current;
+            if (!element) return;
+
+            // Scroll down
+            element.scrollTop += 1;
+
+            // Check if reached bottom
+            if (element.scrollTop + element.clientHeight >= element.scrollHeight - 5) {
+              // Pause at bottom for 2 seconds, then scroll back to top
+              clearInterval(scrollInterval);
+              setTimeout(() => {
+                const el = messageRef.current;
+                if (el) {
+                  el.scrollTo({ top: 0, behavior: 'smooth' });
+                  // Wait for scroll to complete, then start scrolling down again
+                  setTimeout(startScrolling, 2000);
+                }
+              }, 2000);
+            }
+          }, 50); // Scroll speed - lower number = faster
+        }, 2000); // Initial pause at top
+      };
+
+      startScrolling();
+
+      // Cleanup function
+      return () => {
+        clearInterval(scrollInterval);
+        clearTimeout(pauseTimeout);
+      };
+    }, 500); // Wait 500ms for animations to complete
+
+    // Cleanup
+    return () => {
+      clearTimeout(initTimeout);
+    };
+  }, [currentIndex]);
+
   const fetchGoodVibes = async (): Promise<void> => {
     setLoading(true);
     setError(null);
 
     try {
-      // Use the fast cached endpoint - fetches all data in one request
-      const url = `${API_BASE_URL}/api/good-vibes/cached`;
+      // Progressive loading strategy: First load recent 3 months for fast initial display
+      const recentUrl = `${API_BASE_URL}/api/good-vibes/cached?monthsBack=3`;
 
-      console.log(`🔄 Fetching from cached endpoint: ${url}`);
+      console.log(`🔄 Fetching recent vibes (3 months): ${recentUrl}`);
 
-      const response = await fetch(url);
+      const recentResponse = await fetch(recentUrl);
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
+      if (!recentResponse.ok) {
+        throw new Error(`Failed to fetch: ${recentResponse.status} ${recentResponse.statusText}`);
       }
 
-      const data: GoodVibesResponse = await response.json();
+      const recentData: GoodVibesResponse = await recentResponse.json();
 
       // Check if cache is ready
-      if (data.metadata && 'cacheReady' in data.metadata && !data.metadata.cacheReady) {
+      if (recentData.metadata && 'cacheReady' in recentData.metadata && !recentData.metadata.cacheReady) {
         console.log('⏳ Cache is still loading, will retry in 2 seconds...');
         // Cache not ready yet, retry after a short delay
         setTimeout(() => {
@@ -230,23 +290,61 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
         return;
       }
 
-      const allVibes = data.data || [];
+      const recentVibes = recentData.data || [];
 
-      console.log('✅ Loaded from cache:', {
-        totalVibes: allVibes.length,
-        cacheReady: data.metadata?.cacheReady
+      console.log('✅ Loaded recent vibes:', {
+        recentVibes: recentVibes.length,
+        totalInCache: recentData.metadata?.totalCount,
+        cacheReady: recentData.metadata?.cacheReady
       });
 
-      if (allVibes.length === 0) {
+      if (recentVibes.length === 0) {
         setError('No Good Vibes found');
       } else {
-        setVibes(allVibes);
+        // Display recent vibes immediately
+        setVibes(recentVibes);
         setCurrentIndex(0);
+        setLoading(false);
+
+        // Load older vibes in the background if there are more
+        if (recentData.metadata?.totalCount && recentData.metadata.totalCount > recentVibes.length) {
+          console.log('🔄 Loading older vibes in background...');
+
+          // Fetch all vibes in the background
+          setTimeout(async () => {
+            try {
+              const allUrl = `${API_BASE_URL}/api/good-vibes/cached`;
+              const allResponse = await fetch(allUrl);
+
+              if (allResponse.ok) {
+                const allData: GoodVibesResponse = await allResponse.json();
+                const allVibes = allData.data || [];
+
+                console.log('✅ Loaded all vibes in background:', {
+                  totalVibes: allVibes.length
+                });
+
+                // Update vibes with all data, preserving current index
+                setVibes(prevVibes => {
+                  // Keep current index valid by checking if it's within new bounds
+                  const currentVibe = prevVibes[currentIndex];
+                  const newIndex = allVibes.findIndex(v => v.goodVibeId === currentVibe?.goodVibeId);
+                  if (newIndex >= 0 && newIndex !== currentIndex) {
+                    setCurrentIndex(newIndex);
+                  }
+                  return allVibes;
+                });
+              }
+            } catch (err) {
+              console.warn('Failed to load older vibes in background:', err);
+              // Don't show error to user since recent vibes are already loaded
+            }
+          }, 1000); // Wait 1 second before fetching older vibes
+        }
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       setError(errorMessage);
-    } finally {
       setLoading(false);
     }
   };
@@ -542,15 +640,11 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
               borderRadius: 'var(--hop-shape-rounded-lg)',
               boxShadow: 'var(--hop-elevation-lifted)',
               padding: 'var(--hop-space-inset-xl)',
-              maxHeight: '70vh',
               minHeight: '400px',
-              display: 'flex',
-              flexDirection: 'column',
               borderLeft: `4px solid var(--hop-${getVibeColor(currentIndex)}-border)`,
               borderTop: '1px solid var(--hop-neutral-border-weak)',
               borderRight: '1px solid var(--hop-neutral-border-weak)',
-              borderBottom: '1px solid var(--hop-neutral-border-weak)',
-              overflow: 'hidden'
+              borderBottom: '1px solid var(--hop-neutral-border-weak)'
             }}>
               {/* Prompt badge in upper left corner - show custom prompt or default cardPrompt */}
               {(vibes[currentIndex].prompt || (vibes[currentIndex].cardPrompt && vibes[currentIndex].cardPrompt!.length > 0)) && (
@@ -635,12 +729,10 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
                 gap: 'var(--hop-space-stack-xl)',
                 paddingTop: (vibes[currentIndex].prompt || (vibes[currentIndex].cardPrompt && vibes[currentIndex].cardPrompt!.length > 0))
                   ? 'calc(var(--hop-space-stack-xl) + var(--hop-space-stack-lg))'
-                  : '0',
-                flex: 1,
-                overflowY: 'auto',
-                overflowX: 'hidden'
+                  : '0'
               }}>
                 <p
+                  ref={messageRef}
                   className="fade-in-content fade-delay-1 vibe-content-unfold"
                   style={{
                     fontSize: 'var(--hop-heading-lg-font-size)',
@@ -649,7 +741,10 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
                     color: 'var(--hop-neutral-text)',
                     textAlign: 'center',
                     wordBreak: 'break-word',
-                    overflowWrap: 'break-word'
+                    overflowWrap: 'break-word',
+                    maxHeight: '50vh',
+                    overflowY: 'auto',
+                    overflowX: 'hidden'
                   }}>
                   {vibes[currentIndex].message.trim() ? (
                     vibes[currentIndex].message
@@ -690,16 +785,23 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
                     }}>To:</span>
                     {vibes[currentIndex].recipients.map((recipient, idx) => (
                       <React.Fragment key={`${recipient.userId || recipient.displayName}-${idx}`}>
-                        <Avatar
-                          name={recipient.displayName}
-                          size="sm"
-                          src={recipient.avatarUrl || undefined}
-                        />
                         <span style={{
-                          fontWeight: 'var(--hop-body-sm-semibold-font-weight)',
-                          fontSize: 'var(--hop-body-sm-font-size)'
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 'var(--hop-space-inline-xs)',
+                          whiteSpace: 'nowrap'
                         }}>
-                          {recipient.displayName}
+                          <Avatar
+                            name={recipient.displayName}
+                            size="sm"
+                            src={recipient.avatarUrl || undefined}
+                          />
+                          <span style={{
+                            fontWeight: 'var(--hop-body-sm-semibold-font-weight)',
+                            fontSize: 'var(--hop-body-sm-font-size)'
+                          }}>
+                            {recipient.displayName}
+                          </span>
                         </span>
                         {idx < vibes[currentIndex].recipients.length - 1 && <span>,</span>}
                       </React.Fragment>
