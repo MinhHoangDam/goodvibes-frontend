@@ -344,10 +344,11 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
               const endDay = startDay + 30;
 
               // Use monthsBack for older data (converts to appropriate month count)
+              // Skip avatars for fast loading, will enrich later
               const monthsToFetch = Math.ceil(endDay / 30);
-              const monthUrl = `${API_BASE_URL}/api/good-vibes/cached?monthsBack=${monthsToFetch}&avatarSize=${avatarSize}`;
+              const monthUrl = `${API_BASE_URL}/api/good-vibes/cached?monthsBack=${monthsToFetch}&skipAvatars=true`;
 
-              console.log(`📥 Loading month ${monthOffset + 1} (days ${startDay}-${endDay})...`);
+              console.log(`📥 Loading month ${monthOffset + 1} (days ${startDay}-${endDay}, no avatars)...`);
               const monthResponse = await fetch(monthUrl);
 
               if (monthResponse.ok) {
@@ -385,7 +386,46 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
                   // Load next month after a short delay
                   setTimeout(() => loadNextMonth(monthOffset + 1), 2000);
                 } else {
-                  console.log('✅ All vibes loaded!');
+                  console.log('✅ All vibes loaded! Now enriching with avatars in background...');
+
+                  // After all data is loaded, enrich with avatars in the background
+                  setTimeout(async () => {
+                    try {
+                      console.log(`🎨 Fetching avatars for all ${monthVibes.length} vibes...`);
+                      const enrichUrl = `${API_BASE_URL}/api/good-vibes/cached?avatarSize=${avatarSize}`;
+                      const enrichResponse = await fetch(enrichUrl);
+
+                      if (enrichResponse.ok) {
+                        const enrichedData: GoodVibesResponse = await enrichResponse.json();
+                        const enrichedVibes = enrichedData.data || [];
+
+                        console.log(`✅ Avatars loaded! Updating ${enrichedVibes.length} vibes with avatar URLs`);
+
+                        // Update vibes with avatar data
+                        setVibes(prevVibes => {
+                          // Create a map of enriched vibes by ID for quick lookup
+                          const enrichedMap = new Map(enrichedVibes.map(v => [v.goodVibeId, v]));
+
+                          // Update existing vibes with avatar data
+                          return prevVibes.map(vibe => {
+                            const enriched = enrichedMap.get(vibe.goodVibeId);
+                            if (enriched) {
+                              // Merge avatar data into existing vibe
+                              return {
+                                ...vibe,
+                                senderUser: enriched.senderUser,
+                                recipients: enriched.recipients
+                              };
+                            }
+                            return vibe;
+                          });
+                        });
+                      }
+                    } catch (err) {
+                      console.warn('Failed to enrich with avatars:', err);
+                      // Not critical - initials will continue to show
+                    }
+                  }, 2000); // Wait 2 seconds after all data loads before enriching
                 }
               }
             } catch (err) {
