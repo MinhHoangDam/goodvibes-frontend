@@ -386,9 +386,43 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
                   // Load next month after a short delay
                   setTimeout(() => loadNextMonth(monthOffset + 1), 2000);
                 } else {
-                  console.log('✅ All vibes loaded!');
-                  // Note: Avatars will display as colorful initials (Hopper design pattern)
-                  // This provides instant loading without waiting for avatar API calls
+                  console.log('✅ All vibes loaded! Now enriching with avatars in background...');
+
+                  // After all data is loaded, enrich with avatars in the background
+                  setTimeout(async () => {
+                    try {
+                      console.log(`🎨 Fetching avatars for all ${monthVibes.length} vibes...`);
+                      const enrichUrl = `${API_BASE_URL}/api/good-vibes/cached?avatarSize=${avatarSize}`;
+                      const enrichResponse = await fetch(enrichUrl);
+
+                      if (enrichResponse.ok) {
+                        const enrichedData: GoodVibesResponse = await enrichResponse.json();
+                        const enrichedVibes = enrichedData.data || [];
+
+                        console.log(`✅ Avatar enrichment complete: ${enrichedVibes.length} vibes enriched`);
+
+                        // Update vibes with avatar data by merging
+                        setVibes(prevVibes => {
+                          const enrichedMap = new Map(enrichedVibes.map(v => [v.goodVibeId, v]));
+                          return prevVibes.map(vibe => {
+                            const enriched = enrichedMap.get(vibe.goodVibeId);
+                            if (enriched) {
+                              return {
+                                ...vibe,
+                                senderUser: enriched.senderUser,
+                                recipients: enriched.recipients
+                              };
+                            }
+                            return vibe;
+                          });
+                        });
+                      } else {
+                        console.warn('Failed to enrich with avatars:', enrichResponse.status, enrichResponse.statusText);
+                      }
+                    } catch (err) {
+                      console.warn('Failed to enrich with avatars:', err);
+                    }
+                  }, 2000);
                 }
               }
             } catch (err) {
