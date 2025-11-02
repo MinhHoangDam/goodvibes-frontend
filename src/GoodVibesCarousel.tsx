@@ -797,7 +797,7 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
               }}>
                 <p
                   ref={messageRef}
-                  className="fade-in-content fade-delay-1 vibe-content-unfold"
+                  className="fade-in-content fade-delay-1 vibe-content-unfold hide-scrollbar"
                   style={{
                     fontSize: 'var(--hop-heading-lg-font-size)',
                     fontWeight: 'var(--hop-heading-lg-font-weight)',

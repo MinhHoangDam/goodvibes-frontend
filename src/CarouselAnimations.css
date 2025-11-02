@@ -110,3 +110,13 @@
 .fade-delay-2 { animation-delay: 0.2s; opacity: 0; }
 .fade-delay-3 { animation-delay: 0.3s; opacity: 0; }
 .fade-delay-4 { animation-delay: 0.4s; opacity: 0; }
+
+/* Hide scrollbar while maintaining scroll functionality */
+.hide-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
