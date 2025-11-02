@@ -294,10 +294,10 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
       console.log(`📐 Screen size: ${window.screen.width}x${window.screen.height}, using avatar size: ${avatarSize}`);
 
       // Progressive loading strategy: First load recent 30 days for fast initial display
-      // Skip avatars for instant response, avatars will fallback to initials
-      const recentUrl = `${API_BASE_URL}/api/good-vibes/cached?daysBack=30&skipAvatars=true`;
+      // Include avatars for the initial batch (small enough to be fast, ~1-2 seconds)
+      const recentUrl = `${API_BASE_URL}/api/good-vibes/cached?daysBack=30&avatarSize=${avatarSize}`;
 
-      console.log(`🔄 Fetching recent vibes (30 days, no avatars): ${recentUrl}`);
+      console.log(`🔄 Fetching recent vibes (30 days with avatars): ${recentUrl}`);
 
       const recentResponse = await fetch(recentUrl);
 
@@ -344,11 +344,11 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
               const endDay = startDay + 30;
 
               // Use monthsBack for older data (converts to appropriate month count)
-              // Skip avatars for fast loading, will enrich later
+              // Include avatars for each month batch (incremental enrichment)
               const monthsToFetch = Math.ceil(endDay / 30);
-              const monthUrl = `${API_BASE_URL}/api/good-vibes/cached?monthsBack=${monthsToFetch}&skipAvatars=true`;
+              const monthUrl = `${API_BASE_URL}/api/good-vibes/cached?monthsBack=${monthsToFetch}&avatarSize=${avatarSize}`;
 
-              console.log(`📥 Loading month ${monthOffset + 1} (days ${startDay}-${endDay}, no avatars)...`);
+              console.log(`📥 Loading month ${monthOffset + 1} (days ${startDay}-${endDay} with avatars)...`);
               const monthResponse = await fetch(monthUrl);
 
               if (monthResponse.ok) {
@@ -386,43 +386,8 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
                   // Load next month after a short delay
                   setTimeout(() => loadNextMonth(monthOffset + 1), 2000);
                 } else {
-                  console.log('✅ All vibes loaded! Now enriching with avatars in background...');
-
-                  // After all data is loaded, enrich with avatars in the background
-                  setTimeout(async () => {
-                    try {
-                      console.log(`🎨 Fetching avatars for all ${monthVibes.length} vibes...`);
-                      const enrichUrl = `${API_BASE_URL}/api/good-vibes/cached?avatarSize=${avatarSize}`;
-                      const enrichResponse = await fetch(enrichUrl);
-
-                      if (enrichResponse.ok) {
-                        const enrichedData: GoodVibesResponse = await enrichResponse.json();
-                        const enrichedVibes = enrichedData.data || [];
-
-                        console.log(`✅ Avatar enrichment complete: ${enrichedVibes.length} vibes enriched`);
-
-                        // Update vibes with avatar data by merging
-                        setVibes(prevVibes => {
-                          const enrichedMap = new Map(enrichedVibes.map(v => [v.goodVibeId, v]));
-                          return prevVibes.map(vibe => {
-                            const enriched = enrichedMap.get(vibe.goodVibeId);
-                            if (enriched) {
-                              return {
-                                ...vibe,
-                                senderUser: enriched.senderUser,
-                                recipients: enriched.recipients
-                              };
-                            }
-                            return vibe;
-                          });
-                        });
-                      } else {
-                        console.warn('Failed to enrich with avatars:', enrichResponse.status, enrichResponse.statusText);
-                      }
-                    } catch (err) {
-                      console.warn('Failed to enrich with avatars:', err);
-                    }
-                  }, 2000);
+                  console.log('✅ All vibes loaded with avatars!');
+                  // All data loaded incrementally with avatars already included
                 }
               }
             } catch (err) {
