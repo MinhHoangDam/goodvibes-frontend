@@ -200,7 +200,10 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
   useEffect(() => {
     // Auto-fetch replies when viewing a Good Vibe that has replies but they haven't been loaded yet
     if (vibes.length > 0 && vibes[currentIndex].replyCount > 0 && !vibes[currentIndex].replies) {
+      console.log(`[Reply Fetch] Fetching replies for vibe ${vibes[currentIndex].goodVibeId} (replies not cached)`);
       fetchRepliesForVibe(vibes[currentIndex].goodVibeId);
+    } else if (vibes.length > 0 && vibes[currentIndex].replyCount > 0 && vibes[currentIndex].replies) {
+      console.log(`[Reply Cache] Using cached replies for vibe ${vibes[currentIndex].goodVibeId} (${vibes[currentIndex].replies?.length || 0} replies)`);
     }
   }, [currentIndex, vibes]);
 
@@ -415,7 +418,8 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
 
   const fetchRepliesForVibe = async (goodVibeId: string): Promise<void> => {
     setLoadingReplies(true);
-    
+    const startTime = performance.now();
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/good-vibes/${goodVibeId}`);
 
@@ -424,10 +428,14 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
       }
 
       const vibeWithReplies: GoodVibe = await response.json();
-      
+      const endTime = performance.now();
+      const duration = (endTime - startTime).toFixed(0);
+
+      console.log(`[Reply Fetch] Completed in ${duration}ms - fetched ${vibeWithReplies.replies?.length || 0} replies for ${goodVibeId}`);
+
       // Update the specific vibe in the array with the replies
-      setVibes(prevVibes => 
-        prevVibes.map(vibe => 
+      setVibes(prevVibes =>
+        prevVibes.map(vibe =>
           vibe.goodVibeId === goodVibeId ? { ...vibe, replies: vibeWithReplies.replies } : vibe
         )
       );
