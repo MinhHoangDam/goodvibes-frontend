@@ -297,22 +297,21 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
       const avatarSize = getAvatarSize();
       console.log(`📐 Screen size: ${window.screen.width}x${window.screen.height}, using avatar size: ${avatarSize}`);
 
-      // Progressive loading strategy: First load recent 30 days for fast initial display
-      // Include avatars for the initial batch (small enough to be fast, ~1-2 seconds)
-      const recentUrl = `${API_BASE_URL}/api/good-vibes/cached?daysBack=30&avatarSize=${avatarSize}`;
+      // Load ALL vibes at once - backend has everything cached with replies already
+      const url = `${API_BASE_URL}/api/good-vibes/cached?avatarSize=${avatarSize}`;
 
-      console.log(`🔄 Fetching recent vibes (30 days with avatars): ${recentUrl}`);
+      console.log(`🔄 Fetching all cached vibes with avatars: ${url}`);
 
-      const recentResponse = await fetch(recentUrl);
+      const response = await fetch(url);
 
-      if (!recentResponse.ok) {
-        throw new Error(`Failed to fetch: ${recentResponse.status} ${recentResponse.statusText}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
       }
 
-      const recentData: GoodVibesResponse = await recentResponse.json();
+      const data: GoodVibesResponse = await response.json();
 
       // Check if cache is ready
-      if (recentData.metadata && 'cacheReady' in recentData.metadata && !recentData.metadata.cacheReady) {
+      if (data.metadata && 'cacheReady' in data.metadata && !data.metadata.cacheReady) {
         console.log('⏳ Cache is still loading, will retry in 2 seconds...');
         // Cache not ready yet, retry after a short delay
         setTimeout(() => {
@@ -321,94 +320,23 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
         return;
       }
 
-      const recentVibes = recentData.data || [];
+      const allVibes = data.data || [];
 
-      console.log('✅ Loaded recent vibes:', {
-        recentVibes: recentVibes.length,
-        totalInCache: recentData.metadata?.totalCount,
-        cacheReady: recentData.metadata?.cacheReady
+      console.log('✅ Loaded all cached vibes:', {
+        totalVibes: allVibes.length,
+        totalInCache: data.metadata?.totalCount,
+        cacheReady: data.metadata?.cacheReady,
+        vibesWithReplies: allVibes.filter(v => v.replies && v.replies.length > 0).length
       });
 
-      if (recentVibes.length === 0) {
+      if (allVibes.length === 0) {
         setError('No Good Vibes found');
       } else {
-        // Display recent vibes immediately
-        setVibes(recentVibes);
+        setVibes(allVibes);
         setCurrentIndex(0);
-        setLoading(false);
-
-        // Load older vibes month by month in the background if there are more
-        if (recentData.metadata?.totalCount && recentData.metadata.totalCount > recentVibes.length) {
-          console.log('🔄 Loading older vibes month by month in background...');
-
-          // Load additional months incrementally (30-60 days, 60-90 days, etc.)
-          const loadNextMonth = async (monthOffset: number) => {
-            try {
-              const startDay = 30 + (monthOffset * 30);
-              const endDay = startDay + 30;
-
-              // Use monthsBack for older data (converts to appropriate month count)
-              // Include avatars for each month batch (incremental enrichment)
-              const monthsToFetch = Math.ceil(endDay / 30);
-              const monthUrl = `${API_BASE_URL}/api/good-vibes/cached?monthsBack=${monthsToFetch}&avatarSize=${avatarSize}`;
-
-              // Update status for user
-              setBackgroundLoadingStatus(`Loading older vibes (${startDay}-${endDay} days ago)...`);
-              console.log(`📥 Loading month ${monthOffset + 1} (days ${startDay}-${endDay} with avatars)...`);
-              const monthResponse = await fetch(monthUrl);
-
-              if (monthResponse.ok) {
-                const monthData: GoodVibesResponse = await monthResponse.json();
-                const monthVibes = monthData.data || [];
-
-                console.log(`✅ Loaded month ${monthOffset + 1}:`, {
-                  vibes: monthVibes.length,
-                  totalInCache: monthData.metadata?.totalCount
-                });
-
-                // Update vibes with merged data, preserving current index
-                setVibes(prevVibes => {
-                  // Merge new data with existing, avoiding duplicates
-                  const existingIds = new Set(prevVibes.map(v => v.goodVibeId));
-                  const newVibes = monthVibes.filter(v => !existingIds.has(v.goodVibeId));
-
-                  // Keep current vibe reference to maintain position
-                  const currentVibe = prevVibes[currentIndex];
-                  const mergedVibes = [...prevVibes, ...newVibes].sort((a, b) =>
-                    new Date(b.creationDate).getTime() - new Date(a.creationDate).getTime()
-                  );
-
-                  // Update current index to maintain same vibe
-                  const newIndex = mergedVibes.findIndex(v => v.goodVibeId === currentVibe?.goodVibeId);
-                  if (newIndex >= 0 && newIndex !== currentIndex) {
-                    setCurrentIndex(newIndex);
-                  }
-
-                  return mergedVibes;
-                });
-
-                // Check if there are more vibes to load
-                if (monthData.metadata?.totalCount && monthVibes.length < monthData.metadata.totalCount) {
-                  // Load next month after a short delay
-                  setTimeout(() => loadNextMonth(monthOffset + 1), 2000);
-                } else {
-                  console.log('✅ All vibes loaded with avatars!');
-                  setBackgroundLoadingStatus(null); // Clear loading status
-                  // All data loaded incrementally with avatars already included
-                }
-              }
-            } catch (err) {
-              console.warn(`Failed to load month ${monthOffset + 1} in background:`, err);
-              setBackgroundLoadingStatus(null); // Clear loading status on error
-              // Don't show error to user since recent vibes are already loaded
-              // Stop loading further months on error
-            }
-          };
-
-          // Start loading month 2 (days 30-60) after a short delay
-          setTimeout(() => loadNextMonth(1), 1000);
-        }
       }
+
+      setLoading(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       setError(errorMessage);
