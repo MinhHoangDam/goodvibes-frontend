@@ -651,7 +651,7 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
             marginBottom: 'var(--hop-space-stack-md)'
           }} className="flex items-center justify-center">
             <SparklesIcon style={{ color: 'var(--hop-primary-icon)', width: '2.5rem', height: '2.5rem' }} />
-            Surfing the Good Vibes
+            Good Vibes Glow Up
           </h1>
 
         </div>
