@@ -884,24 +884,11 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
                     <span style={{
                       fontSize: 'var(--hop-body-xs-font-size)'
                     }}>From:</span>
-                    {(() => {
-                      const currentVibe = vibes[currentIndex];
-                      if (currentVibe.goodVibeId === '68a50bab435b576cab97a469') {
-                        console.log('🔍 Rendering vibe 68a50bab435b576cab97a469:', {
-                          senderName: currentVibe.senderUser.displayName,
-                          senderAvatarUrl: currentVibe.senderUser.avatarUrl,
-                          recipientCount: currentVibe.recipients.length,
-                          recipientAvatars: currentVibe.recipients.map(r => ({ name: r.displayName, avatarUrl: r.avatarUrl }))
-                        });
-                      }
-                      return (
-                        <Avatar
-                          name={currentVibe.senderUser.displayName}
-                          size="xs"
-                          src={currentVibe.senderUser.avatarUrl || undefined}
-                        />
-                      );
-                    })()}
+                    <Avatar
+                      name={vibes[currentIndex].senderUser.displayName}
+                      size="xs"
+                      src={vibes[currentIndex].senderUser.avatarUrl || undefined}
+                    />
                     <span style={{
                       fontSize: 'var(--hop-body-xs-font-size)'
                     }}>
