@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { WellnessIcon, RefreshIcon, PlayIcon, NewCommentIcon, ArrowLeftIcon, ArrowRightIcon, SparklesIcon, LightbulbIcon, StarIcon, GiftIcon, HappinessIcon, ThumbsUpIcon, RocketIcon, CollapseRightIcon, ApplauseIcon } from '@hopper-ui/icons';
+import { WellnessIcon, PlayIcon, NewCommentIcon, ArrowLeftIcon, ArrowRightIcon, SparklesIcon, LightbulbIcon, StarIcon, GiftIcon, HappinessIcon, ThumbsUpIcon, CollapseRightIcon, ApplauseIcon, RefreshIcon } from '@hopper-ui/icons';
 import { Avatar, useColorSchemeContext } from '@hopper-ui/components';
 import { GoodVibe, GoodVibesResponse } from './types';
 import './CarouselAnimations.css';
@@ -11,9 +11,10 @@ interface GoodVibesCarouselProps {
   showLeaderboard?: boolean;
   onToggleLeaderboard?: () => void;
   onControlsChange?: (show: boolean) => void;
+  onProgressiveLoadingChange?: (isLoading: boolean) => void;
 }
 
-const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, showLeaderboard, onToggleLeaderboard, onControlsChange }) => {
+const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, showLeaderboard, onToggleLeaderboard, onControlsChange, onProgressiveLoadingChange }) => {
   const [vibes, setVibes] = useState<GoodVibe[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
@@ -73,14 +74,14 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
       return LightbulbIcon;
     }
     if (combinedText.includes('launch') || combinedText.includes('start') || combinedText.includes('new') || combinedText.includes('begin')) {
-      return RocketIcon;
+      return SparklesIcon;
     }
     if (combinedText.includes('special') || combinedText.includes('amazing') || combinedText.includes('awesome') || combinedText.includes('outstanding')) {
       return SparklesIcon;
     }
     
     // Fallback to cycling through icons based on index
-    const iconCycle = [WellnessIcon, StarIcon, HappinessIcon, ThumbsUpIcon, LightbulbIcon, GiftIcon, RocketIcon, SparklesIcon];
+    const iconCycle = [WellnessIcon, StarIcon, HappinessIcon, ThumbsUpIcon, LightbulbIcon, GiftIcon, SparklesIcon];
     return iconCycle[index % iconCycle.length];
   };
 
@@ -297,10 +298,10 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
       const avatarSize = getAvatarSize();
       console.log(`📐 Screen size: ${window.screen.width}x${window.screen.height}, using avatar size: ${avatarSize}`);
 
-      // Load ALL vibes at once - backend has everything cached with replies already
-      const url = `${API_BASE_URL}/api/good-vibes/cached?avatarSize=${avatarSize}`;
+      // Load first 7 days from cached endpoint (fast with avatar enrichment)
+      const url = `${API_BASE_URL}/api/good-vibes/cached?daysBack=7&avatarSize=${avatarSize}`;
 
-      console.log(`🔄 Fetching all cached vibes with avatars: ${url}`);
+      console.log(`🔄 Fetching last 7 days from cache: ${url}`);
 
       const response = await fetch(url);
 
@@ -320,27 +321,86 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
         return;
       }
 
-      const allVibes = data.data || [];
+      const initialVibes = data.data || [];
 
-      console.log('✅ Loaded all cached vibes:', {
-        totalVibes: allVibes.length,
+      console.log('✅ Loaded last 7 days from cache:', {
+        initialVibes: initialVibes.length,
         totalInCache: data.metadata?.totalCount,
         cacheReady: data.metadata?.cacheReady,
-        vibesWithReplies: allVibes.filter(v => v.replies && v.replies.length > 0).length
+        vibesWithReplies: initialVibes.filter(v => v.replies && v.replies.length > 0).length
       });
 
-      if (allVibes.length === 0) {
+      if (initialVibes.length === 0) {
         setError('No Good Vibes found');
-      } else {
-        setVibes(allVibes);
-        setCurrentIndex(0);
+        setLoading(false);
+        return;
       }
 
+      setVibes(initialVibes);
+      setCurrentIndex(0);
       setLoading(false);
+
+      // Load remaining vibes in background
+      console.log('📥 Loading remaining vibes in background...');
+      setBackgroundLoadingStatus('Loading older Good Vibes...');
+      onProgressiveLoadingChange?.(true); // Notify that progressive loading has started
+
+      // Fetch older vibes (7-14 days)
+      fetchOlderVibesInBackground(7, 14, avatarSize, initialVibes);
+
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       setError(errorMessage);
       setLoading(false);
+    }
+  };
+
+  const fetchOlderVibesInBackground = async (startDaysBack: number, endDaysBack: number, avatarSize: string, existingVibes: GoodVibe[]): Promise<void> => {
+    try {
+      const url = `${API_BASE_URL}/api/good-vibes/cached?daysBack=${endDaysBack}&avatarSize=${avatarSize}`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        console.warn(`Failed to fetch older vibes (${startDaysBack}-${endDaysBack} days): ${response.status}`);
+        setBackgroundLoadingStatus(null);
+        onProgressiveLoadingChange?.(false); // Notify that progressive loading has finished
+        return;
+      }
+
+      const data: GoodVibesResponse = await response.json();
+      const allVibes = data.data || [];
+
+      // Filter out vibes we already have
+      const newVibes = allVibes.filter(v =>
+        !existingVibes.some(existing => existing.goodVibeId === v.goodVibeId)
+      );
+
+      if (newVibes.length > 0) {
+        console.log(`📥 Loaded ${newVibes.length} older vibes (${startDaysBack}-${endDaysBack} days back)`);
+
+        const updatedVibes = [...existingVibes, ...newVibes];
+        setVibes(updatedVibes);
+
+        // Continue loading even older vibes if we got results
+        // Add a 500ms delay between requests to avoid rate limiting
+        if (endDaysBack < 365) {
+          setTimeout(() => {
+            fetchOlderVibesInBackground(endDaysBack, endDaysBack + 7, avatarSize, updatedVibes);
+          }, 500);
+        } else {
+          setBackgroundLoadingStatus(null);
+          onProgressiveLoadingChange?.(false); // Notify that progressive loading has finished
+          console.log('✅ Finished loading all vibes');
+        }
+      } else {
+        setBackgroundLoadingStatus(null);
+        onProgressiveLoadingChange?.(false); // Notify that progressive loading has finished
+        console.log('✅ No more older vibes to load');
+      }
+    } catch (err) {
+      console.warn('Failed to fetch older vibes in background:', err);
+      setBackgroundLoadingStatus(null);
+      onProgressiveLoadingChange?.(false); // Notify that progressive loading has finished
     }
   };
 
@@ -729,7 +789,9 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
                 gap: 'var(--hop-space-stack-xl)',
                 paddingTop: (vibes[currentIndex].prompt || (vibes[currentIndex].cardPrompt && vibes[currentIndex].cardPrompt!.length > 0))
                   ? 'calc(var(--hop-space-stack-xl) + var(--hop-space-stack-lg))'
-                  : '0'
+                  : (vibes[currentIndex].reactions && vibes[currentIndex].reactions.length > 0)
+                    ? 'calc(var(--hop-space-stack-xl) + var(--hop-space-stack-md))'
+                    : '0'
               }}>
                 <p
                   ref={messageRef}
@@ -1000,7 +1062,7 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
                   </button>
                 </div>
 
-                {/* Auto-play button on the right */}
+                {/* Auto-play control on the right */}
                 <button
                   onClick={(e) => {
                     toggleAutoPlay();
@@ -1011,7 +1073,7 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
                     // Reset hide timer on hover
                     e.currentTarget.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
                   }}
-                  style={{ 
+                  style={{
                     color: autoPlay ? 'var(--hop-success-text-strong)' : 'var(--hop-primary-text)',
                     gap: 'var(--hop-space-inline-xs)',
                     fontWeight: 'var(--hop-body-sm-medium-font-weight)',

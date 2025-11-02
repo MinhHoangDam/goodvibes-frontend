@@ -6,8 +6,9 @@ import './App.css';
 
 function App() {
   const [currentVibeDate, setCurrentVibeDate] = useState<Date | null>(null);
-  const [showLeaderboard, setShowLeaderboard] = useState<boolean>(true);
+  const [showLeaderboard, setShowLeaderboard] = useState<boolean>(false);
   const [showControls, setShowControls] = useState<boolean>(false);
+  const [isProgressiveLoading, setIsProgressiveLoading] = useState<boolean>(false);
   const { colorScheme } = useColorSchemeContext();
 
   return (
@@ -118,6 +119,7 @@ function App() {
             showLeaderboard={showLeaderboard}
             onToggleLeaderboard={() => setShowLeaderboard(!showLeaderboard)}
             onControlsChange={setShowControls}
+            onProgressiveLoadingChange={setIsProgressiveLoading}
           />
         </div>
         {showLeaderboard && (
@@ -127,7 +129,10 @@ function App() {
             marginTop: '4.5rem',
             animation: 'fadeIn 0.3s ease-in'
           }}>
-            <MonthlyLeaderboard currentVibeDate={currentVibeDate} />
+            <MonthlyLeaderboard
+              currentVibeDate={currentVibeDate}
+              isProgressiveLoading={isProgressiveLoading}
+            />
           </div>
         )}
       </div>

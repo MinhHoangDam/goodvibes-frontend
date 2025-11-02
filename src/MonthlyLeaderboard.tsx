@@ -28,9 +28,10 @@ interface LeaderboardData {
 
 interface MonthlyLeaderboardProps {
   currentVibeDate: Date | null;
+  isProgressiveLoading?: boolean;
 }
 
-const MonthlyLeaderboard: React.FC<MonthlyLeaderboardProps> = ({ currentVibeDate }) => {
+const MonthlyLeaderboard: React.FC<MonthlyLeaderboardProps> = ({ currentVibeDate, isProgressiveLoading }) => {
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isRecipientsCollapsed, setIsRecipientsCollapsed] = useState<boolean>(false);
@@ -43,14 +44,14 @@ const MonthlyLeaderboard: React.FC<MonthlyLeaderboardProps> = ({ currentVibeDate
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
-  // Fetch leaderboard when current vibe date changes
+  // Fetch leaderboard when current vibe date changes, but skip during progressive loading
   useEffect(() => {
-    if (currentVibeDate) {
+    if (currentVibeDate && !isProgressiveLoading) {
       const year = currentVibeDate.getFullYear();
       const month = currentVibeDate.getMonth() + 1; // getMonth() returns 0-11
       fetchLeaderboard(year, month);
     }
-  }, [currentVibeDate]);
+  }, [currentVibeDate, isProgressiveLoading]);
 
   const fetchLeaderboard = async (year: number, month: number): Promise<void> => {
     setLoading(true);
