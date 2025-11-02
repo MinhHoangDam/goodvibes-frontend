@@ -26,6 +26,7 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
   const [mouseInactivityTimer, setMouseInactivityTimer] = useState<NodeJS.Timeout | null>(null);
   const [autoPlayProgress, setAutoPlayProgress] = useState<number>(0); // Track auto-play progress (0-100%)
   const messageRef = useRef<HTMLParagraphElement>(null); // Ref for auto-scrolling message
+  const [backgroundLoadingStatus, setBackgroundLoadingStatus] = useState<string | null>(null); // Track background loading progress
 
   // Theme management
   const { colorScheme, setColorScheme } = useColorSchemeContext();
@@ -348,6 +349,8 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
               const monthsToFetch = Math.ceil(endDay / 30);
               const monthUrl = `${API_BASE_URL}/api/good-vibes/cached?monthsBack=${monthsToFetch}&avatarSize=${avatarSize}`;
 
+              // Update status for user
+              setBackgroundLoadingStatus(`Loading older vibes (${startDay}-${endDay} days ago)...`);
               console.log(`📥 Loading month ${monthOffset + 1} (days ${startDay}-${endDay} with avatars)...`);
               const monthResponse = await fetch(monthUrl);
 
@@ -387,11 +390,13 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
                   setTimeout(() => loadNextMonth(monthOffset + 1), 2000);
                 } else {
                   console.log('✅ All vibes loaded with avatars!');
+                  setBackgroundLoadingStatus(null); // Clear loading status
                   // All data loaded incrementally with avatars already included
                 }
               }
             } catch (err) {
               console.warn(`Failed to load month ${monthOffset + 1} in background:`, err);
+              setBackgroundLoadingStatus(null); // Clear loading status on error
               // Don't show error to user since recent vibes are already loaded
               // Stop loading further months on error
             }
@@ -1240,6 +1245,33 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
               </span>
             </div>
 
+          </div>
+        )}
+
+        {/* Background loading indicator */}
+        {backgroundLoadingStatus && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 'var(--hop-space-inline-sm)',
+            padding: 'var(--hop-space-inset-sm)',
+            fontSize: 'var(--hop-body-xs-font-size)',
+            color: 'var(--hop-neutral-text-weak)',
+            opacity: 0.8
+          }}>
+            <div
+              className="inline-block animate-spin rounded-full"
+              style={{
+                width: '12px',
+                height: '12px',
+                borderWidth: '2px',
+                borderStyle: 'solid',
+                borderColor: 'var(--hop-neutral-border-weak)',
+                borderTopColor: 'var(--hop-primary-border)'
+              }}
+            />
+            <span>{backgroundLoadingStatus}</span>
           </div>
         )}
       </div>
