@@ -638,17 +638,22 @@ const GoodVibesCarousel: React.FC<GoodVibesCarouselProps> = ({ onVibeChange, sho
             )}
           </div>
 
-          <h1 style={{
-            fontSize: 'var(--hop-heading-xl-font-size)',
-            fontWeight: 'var(--hop-heading-xl-font-weight)',
-            lineHeight: 'var(--hop-heading-xl-line-height)',
-            color: 'var(--hop-neutral-text)',
-            gap: 'var(--hop-space-inline-md)',
-            marginBottom: 'var(--hop-space-stack-md)'
-          }} className="flex items-center justify-center">
-            <SparklesIcon style={{ color: 'var(--hop-primary-icon)', width: '2.5rem', height: '2.5rem' }} />
-            Good Vibes Glow Up
-          </h1>
+          {/* Title - hidden along with controls during inactivity */}
+          <div
+            className={`controls-overlay ${showControls ? 'controls-visible' : 'controls-hidden'}`}
+          >
+            <h1 style={{
+              fontSize: 'var(--hop-heading-xl-font-size)',
+              fontWeight: 'var(--hop-heading-xl-font-weight)',
+              lineHeight: 'var(--hop-heading-xl-line-height)',
+              color: 'var(--hop-neutral-text)',
+              gap: 'var(--hop-space-inline-md)',
+              marginBottom: 'var(--hop-space-stack-md)'
+            }} className="flex items-center justify-center">
+              <SparklesIcon style={{ color: 'var(--hop-primary-icon)', width: '2.5rem', height: '2.5rem' }} />
+              Good Vibes Glow Up
+            </h1>
+          </div>
 
         </div>
 
